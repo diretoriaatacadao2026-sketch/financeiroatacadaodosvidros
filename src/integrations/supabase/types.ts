@@ -130,6 +130,98 @@ export type Database = {
         }
         Relationships: []
       }
+      installer_feedbacks: {
+        Row: {
+          client_name: string | null
+          comment: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          installer_id: string
+          rating: number
+          service_date: string
+          updated_at: string
+        }
+        Insert: {
+          client_name?: string | null
+          comment?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          installer_id: string
+          rating: number
+          service_date?: string
+          updated_at?: string
+        }
+        Update: {
+          client_name?: string | null
+          comment?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          installer_id?: string
+          rating?: number
+          service_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installer_feedbacks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installer_feedbacks_installer_id_fkey"
+            columns: ["installer_id"]
+            isOneToOne: false
+            referencedRelation: "installers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installers: {
+        Row: {
+          active: boolean
+          company_id: string
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          company_id: string
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          company_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
