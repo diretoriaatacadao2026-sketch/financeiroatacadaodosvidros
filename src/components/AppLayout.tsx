@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Wallet, LogOut, Building2, Menu } from "lucide-react";
+import { LayoutDashboard, Wallet, LogOut, Building2, Menu, Star } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/format";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/caixa", label: "Fechamento de Caixa", icon: Wallet },
+  { to: "/montadores", label: "Feedback Montadores", icon: Star },
 ] as const;
 
 export function AppLayout({ children }: { children?: ReactNode }) {
