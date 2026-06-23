@@ -1,0 +1,559 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useSuspenseQuery, useQueryClient, queryOptions } from "@tanstack/react-query";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { brl, dateBR } from "@/lib/format";
+import { Fuel, Plus, Trash2, Truck, Building2 } from "lucide-react";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/_authenticated/abastecimentos")({
+  ssr: false,
+  head: () => ({ meta: [{ title: "Abastecimentos — Glass ERP" }] }),
+  component: () => (
+    <Suspense fallback={<div className="text-muted-foreground">Carregando...</div>}>
+      <AbastecimentosPage />
+    </Suspense>
+  ),
+});
+
+interface Company { id: string; name: string }
+interface Vehicle { id: string; company_id: string; plate: string; model: string | null; active: boolean }
+interface Provider { id: string; company_id: string; name: string; active: boolean }
+interface Refuel {
+  id: string; company_id: string; vehicle_id: string; provider_id: string | null;
+  refuel_date: string; fuel_type: string; liters: number; price_per_liter: number;
+  total_amount: number; odometer: number | null; driver_name: string | null; notes: string | null;
+}
+
+const FUEL_TYPES = [
+  { value: "diesel", label: "Diesel" },
+  { value: "diesel_s10", label: "Diesel S-10" },
+  { value: "gasolina", label: "Gasolina" },
+  { value: "etanol", label: "Etanol" },
+  { value: "gnv", label: "GNV" },
+  { value: "arla", label: "Arla 32" },
+];
+
+const today = () => new Date().toISOString().slice(0, 10);
+const daysAgo = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+};
+
+const baseDataQuery = queryOptions({
+  queryKey: ["abastecimentos", "base"],
+  queryFn: async () => {
+    const [companiesRes, vehiclesRes, providersRes] = await Promise.all([
+      supabase.from("companies").select("id, name").order("name"),
+      supabase.from("vehicles").select("id, company_id, plate, model, active").order("plate"),
+      supabase.from("fuel_providers").select("id, company_id, name, active").order("name"),
+    ]);
+    if (vehiclesRes.error) throw vehiclesRes.error;
+    if (providersRes.error) throw providersRes.error;
+    return {
+      companies: (companiesRes.data ?? []) as Company[],
+      vehicles: (vehiclesRes.data ?? []) as Vehicle[],
+      providers: (providersRes.data ?? []) as Provider[],
+    };
+  },
+});
+
+interface Filters {
+  companyId: string;
+  vehicleId: string;
+  providerId: string;
+  from: string;
+  to: string;
+}
+
+const refuelsQuery = (f: Filters) => queryOptions({
+  queryKey: ["abastecimentos", "list", f],
+  queryFn: async () => {
+    let q = supabase
+      .from("fuel_refuels")
+      .select("id, company_id, vehicle_id, provider_id, refuel_date, fuel_type, liters, price_per_liter, total_amount, odometer, driver_name, notes")
+      .gte("refuel_date", f.from)
+      .lte("refuel_date", f.to)
+      .order("refuel_date", { ascending: false })
+      .limit(1000);
+    if (f.companyId !== "all") q = q.eq("company_id", f.companyId);
+    if (f.vehicleId !== "all") q = q.eq("vehicle_id", f.vehicleId);
+    if (f.providerId !== "all") q = q.eq("provider_id", f.providerId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data ?? []) as Refuel[];
+  },
+});
+
+function AbastecimentosPage() {
+  const { hasRole } = useAuth();
+  const canManage = hasRole(["admin", "gestor", "financeiro"]);
+  const canWrite = hasRole(["admin", "gestor", "financeiro", "vendedor"]);
+  const canDelete = hasRole(["admin", "gestor", "financeiro"]);
+
+  const [filters, setFilters] = useState<Filters>({
+    companyId: "all",
+    vehicleId: "all",
+    providerId: "all",
+    from: daysAgo(30),
+    to: today(),
+  });
+
+  const { data: base } = useSuspenseQuery(baseDataQuery);
+  const { data: refuels } = useSuspenseQuery(refuelsQuery(filters));
+  const qc = useQueryClient();
+
+  const filteredVehicles = useMemo(
+    () => filters.companyId === "all" ? base.vehicles : base.vehicles.filter(v => v.company_id === filters.companyId),
+    [base.vehicles, filters.companyId],
+  );
+  const filteredProviders = useMemo(
+    () => filters.companyId === "all" ? base.providers : base.providers.filter(p => p.company_id === filters.companyId),
+    [base.providers, filters.companyId],
+  );
+
+  useEffect(() => {
+    if (filters.vehicleId !== "all" && !filteredVehicles.find(v => v.id === filters.vehicleId)) {
+      setFilters(f => ({ ...f, vehicleId: "all" }));
+    }
+    if (filters.providerId !== "all" && !filteredProviders.find(p => p.id === filters.providerId)) {
+      setFilters(f => ({ ...f, providerId: "all" }));
+    }
+  }, [filters.companyId, filteredVehicles, filteredProviders, filters.vehicleId, filters.providerId]);
+
+  const totals = useMemo(() => {
+    const totalAmount = refuels.reduce((s, r) => s + Number(r.total_amount), 0);
+    const totalLiters = refuels.reduce((s, r) => s + Number(r.liters), 0);
+    const avgPrice = totalLiters > 0 ? totalAmount / totalLiters : 0;
+    return { totalAmount, totalLiters, avgPrice, count: refuels.length };
+  }, [refuels]);
+
+  const deleteRefuel = async (id: string) => {
+    if (!confirm("Excluir este abastecimento?")) return;
+    const { error } = await supabase.from("fuel_refuels").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Abastecimento excluído");
+    qc.invalidateQueries({ queryKey: ["abastecimentos"] });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Controle de Abastecimentos</h1>
+          <p className="text-sm text-muted-foreground">Consumo de combustível por empresa, veículo e prestador.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {canManage && <NewVehicleDialog companies={base.companies} />}
+          {canManage && <NewProviderDialog companies={base.companies} />}
+          {canWrite && base.vehicles.length > 0 && (
+            <NewRefuelDialog companies={base.companies} vehicles={base.vehicles} providers={base.providers} />
+          )}
+        </div>
+      </div>
+
+      <Card className="p-4">
+        <div className="grid gap-3 md:grid-cols-5">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Empresa</Label>
+            <Select value={filters.companyId} onValueChange={(v) => setFilters(f => ({ ...f, companyId: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {base.companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Veículo</Label>
+            <Select value={filters.vehicleId} onValueChange={(v) => setFilters(f => ({ ...f, vehicleId: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {filteredVehicles.map(v => (
+                  <SelectItem key={v.id} value={v.id}>{v.plate}{v.model ? ` — ${v.model}` : ""}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Prestador / Posto</Label>
+            <Select value={filters.providerId} onValueChange={(v) => setFilters(f => ({ ...f, providerId: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {filteredProviders.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">De</Label>
+            <Input type="date" value={filters.from} onChange={(e) => setFilters(f => ({ ...f, from: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Até</Label>
+            <Input type="date" value={filters.to} onChange={(e) => setFilters(f => ({ ...f, to: e.target.value }))} />
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid gap-4 sm:grid-cols-4">
+        <Card className="p-5">
+          <div className="text-sm text-muted-foreground">Total gasto</div>
+          <div className="mt-2 text-2xl font-bold">{brl(totals.totalAmount)}</div>
+        </Card>
+        <Card className="p-5">
+          <div className="text-sm text-muted-foreground">Litros</div>
+          <div className="mt-2 text-2xl font-bold">{totals.totalLiters.toFixed(2)} L</div>
+        </Card>
+        <Card className="p-5">
+          <div className="text-sm text-muted-foreground">Preço médio/L</div>
+          <div className="mt-2 text-2xl font-bold">{brl(totals.avgPrice)}</div>
+        </Card>
+        <Card className="p-5">
+          <div className="text-sm text-muted-foreground">Lançamentos</div>
+          <div className="mt-2 text-2xl font-bold">{totals.count}</div>
+        </Card>
+      </div>
+
+      <Card className="overflow-hidden">
+        <div className="flex items-center gap-2 border-b p-4">
+          <Fuel className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold">Abastecimentos</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Empresa</TableHead>
+                <TableHead>Veículo</TableHead>
+                <TableHead>Prestador</TableHead>
+                <TableHead>Combustível</TableHead>
+                <TableHead className="text-right">Litros</TableHead>
+                <TableHead className="text-right">R$/L</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead>Motorista</TableHead>
+                <TableHead className="text-right">KM</TableHead>
+                <TableHead className="w-10" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {refuels.length === 0 && (
+                <TableRow><TableCell colSpan={11} className="py-10 text-center text-muted-foreground">Nenhum abastecimento no período.</TableCell></TableRow>
+              )}
+              {refuels.map((r) => {
+                const v = base.vehicles.find(x => x.id === r.vehicle_id);
+                const p = base.providers.find(x => x.id === r.provider_id);
+                const c = base.companies.find(x => x.id === r.company_id);
+                const ft = FUEL_TYPES.find(x => x.value === r.fuel_type);
+                return (
+                  <TableRow key={r.id}>
+                    <TableCell className="text-sm">{dateBR(r.refuel_date)}</TableCell>
+                    <TableCell className="text-sm">{c?.name ?? "—"}</TableCell>
+                    <TableCell className="text-sm font-medium">{v?.plate ?? "—"}</TableCell>
+                    <TableCell className="text-sm">{p?.name ?? "—"}</TableCell>
+                    <TableCell><Badge variant="secondary" className="font-normal">{ft?.label ?? r.fuel_type}</Badge></TableCell>
+                    <TableCell className="text-right text-sm">{Number(r.liters).toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-sm">{brl(Number(r.price_per_liter))}</TableCell>
+                    <TableCell className="text-right text-sm font-medium">{brl(Number(r.total_amount))}</TableCell>
+                    <TableCell className="text-sm">{r.driver_name ?? "—"}</TableCell>
+                    <TableCell className="text-right text-sm">{r.odometer ?? "—"}</TableCell>
+                    <TableCell>
+                      {canDelete && (
+                        <Button variant="ghost" size="icon" onClick={() => deleteRefuel(r.id)}>
+                          <Trash2 className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function NewVehicleDialog({ companies }: { companies: Company[] }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [companyId, setCompanyId] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!companyId) return toast.error("Selecione a empresa");
+    const fd = new FormData(e.currentTarget);
+    setLoading(true);
+    const { error } = await supabase.from("vehicles").insert({
+      company_id: companyId,
+      plate: String(fd.get("plate")).toUpperCase(),
+      model: String(fd.get("model") || "") || null,
+    });
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Veículo cadastrado");
+    qc.invalidateQueries({ queryKey: ["abastecimentos"] });
+    setOpen(false);
+    setCompanyId("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline"><Truck className="mr-1 h-4 w-4" /> Veículo</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Novo Veículo</DialogTitle></DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Empresa</Label>
+            <Select value={companyId} onValueChange={setCompanyId}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>
+                {companies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="plate">Placa</Label>
+              <Input id="plate" name="plate" required maxLength={10} className="uppercase" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="model">Modelo (opcional)</Label>
+              <Input id="model" name="model" maxLength={60} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button type="submit" disabled={loading}>{loading ? "Salvando..." : "Salvar"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NewProviderDialog({ companies }: { companies: Company[] }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [companyId, setCompanyId] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!companyId) return toast.error("Selecione a empresa");
+    const fd = new FormData(e.currentTarget);
+    setLoading(true);
+    const { error } = await supabase.from("fuel_providers").insert({
+      company_id: companyId,
+      name: String(fd.get("name")),
+    });
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Prestador cadastrado");
+    qc.invalidateQueries({ queryKey: ["abastecimentos"] });
+    setOpen(false);
+    setCompanyId("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline"><Building2 className="mr-1 h-4 w-4" /> Prestador</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Novo Prestador / Posto</DialogTitle></DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Empresa</Label>
+            <Select value={companyId} onValueChange={setCompanyId}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>
+                {companies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="name">Nome</Label>
+            <Input id="name" name="name" required maxLength={100} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button type="submit" disabled={loading}>{loading ? "Salvando..." : "Salvar"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NewRefuelDialog({
+  companies, vehicles, providers,
+}: { companies: Company[]; vehicles: Vehicle[]; providers: Provider[] }) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [companyId, setCompanyId] = useState("");
+  const [vehicleId, setVehicleId] = useState("");
+  const [providerId, setProviderId] = useState("none");
+  const [fuelType, setFuelType] = useState("diesel");
+  const [liters, setLiters] = useState("");
+  const [price, setPrice] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const total = useMemo(() => {
+    const l = parseFloat(liters.replace(",", "."));
+    const p = parseFloat(price.replace(",", "."));
+    if (!isFinite(l) || !isFinite(p)) return 0;
+    return l * p;
+  }, [liters, price]);
+
+  const companyVehicles = companyId ? vehicles.filter(v => v.company_id === companyId) : [];
+  const companyProviders = companyId ? providers.filter(p => p.company_id === companyId) : [];
+
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!companyId) return toast.error("Selecione a empresa");
+    if (!vehicleId) return toast.error("Selecione o veículo");
+    const l = parseFloat(liters.replace(",", "."));
+    const p = parseFloat(price.replace(",", "."));
+    if (!isFinite(l) || l <= 0) return toast.error("Litros inválido");
+    if (!isFinite(p) || p < 0) return toast.error("Preço inválido");
+    const fd = new FormData(e.currentTarget);
+    setLoading(true);
+    const { error } = await supabase.from("fuel_refuels").insert({
+      company_id: companyId,
+      vehicle_id: vehicleId,
+      provider_id: providerId === "none" ? null : providerId,
+      refuel_date: String(fd.get("refuel_date")),
+      fuel_type: fuelType,
+      liters: l,
+      price_per_liter: p,
+      total_amount: Number((l * p).toFixed(2)),
+      odometer: fd.get("odometer") ? parseInt(String(fd.get("odometer")), 10) : null,
+      driver_name: String(fd.get("driver_name") || "") || null,
+      notes: String(fd.get("notes") || "") || null,
+      created_by: user?.id,
+    });
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Abastecimento registrado");
+    qc.invalidateQueries({ queryKey: ["abastecimentos"] });
+    setOpen(false);
+    setCompanyId(""); setVehicleId(""); setProviderId("none");
+    setLiters(""); setPrice("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button><Plus className="mr-1 h-4 w-4" /> Novo Abastecimento</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-xl">
+        <DialogHeader><DialogTitle>Novo Abastecimento</DialogTitle></DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Empresa</Label>
+              <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setVehicleId(""); setProviderId("none"); }}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {companies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Veículo</Label>
+              <Select value={vehicleId} onValueChange={setVehicleId} disabled={!companyId}>
+                <SelectTrigger><SelectValue placeholder={companyId ? "Selecione" : "Selecione a empresa"} /></SelectTrigger>
+                <SelectContent>
+                  {companyVehicles.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>{v.plate}{v.model ? ` — ${v.model}` : ""}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Prestador (opcional)</Label>
+              <Select value={providerId} onValueChange={setProviderId} disabled={!companyId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Sem prestador —</SelectItem>
+                  {companyProviders.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Combustível</Label>
+              <Select value={fuelType} onValueChange={setFuelType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {FUEL_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="refuel_date">Data</Label>
+              <Input id="refuel_date" name="refuel_date" type="date" required defaultValue={today()} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="liters">Litros</Label>
+              <Input id="liters" inputMode="decimal" value={liters} onChange={(e) => setLiters(e.target.value)} required placeholder="0,00" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="price">Preço/L</Label>
+              <Input id="price" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} required placeholder="0,000" />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="odometer">Hodômetro (km)</Label>
+              <Input id="odometer" name="odometer" type="number" min={0} />
+            </div>
+            <div className="space-y-1.5 col-span-2">
+              <Label htmlFor="driver_name">Motorista (opcional)</Label>
+              <Input id="driver_name" name="driver_name" maxLength={100} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="notes">Observações (opcional)</Label>
+            <Textarea id="notes" name="notes" maxLength={500} rows={2} />
+          </div>
+          <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+            Total: <span className="font-semibold">{brl(total)}</span>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button type="submit" disabled={loading}>{loading ? "Salvando..." : "Salvar"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
