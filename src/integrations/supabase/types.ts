@@ -130,6 +130,117 @@ export type Database = {
         }
         Relationships: []
       }
+      fuel_providers: {
+        Row: {
+          active: boolean
+          company_id: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          company_id: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          company_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fuel_providers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fuel_refuels: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          driver_name: string | null
+          fuel_type: string
+          id: string
+          liters: number
+          notes: string | null
+          odometer: number | null
+          price_per_liter: number
+          provider_id: string | null
+          refuel_date: string
+          total_amount: number
+          updated_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          driver_name?: string | null
+          fuel_type?: string
+          id?: string
+          liters: number
+          notes?: string | null
+          odometer?: number | null
+          price_per_liter: number
+          provider_id?: string | null
+          refuel_date?: string
+          total_amount: number
+          updated_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          driver_name?: string | null
+          fuel_type?: string
+          id?: string
+          liters?: number
+          notes?: string | null
+          odometer?: number | null
+          price_per_liter?: number
+          provider_id?: string | null
+          refuel_date?: string
+          total_amount?: number
+          updated_at?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fuel_refuels_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_refuels_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "fuel_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_refuels_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       installer_feedbacks: {
         Row: {
           client_name: string | null
@@ -289,6 +400,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vehicles: {
+        Row: {
+          active: boolean
+          company_id: string
+          created_at: string
+          id: string
+          model: string | null
+          plate: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          company_id: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          plate: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          company_id?: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          plate?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
