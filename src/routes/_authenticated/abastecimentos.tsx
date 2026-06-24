@@ -509,9 +509,118 @@ function NewProviderDialog({ companies }: { companies: Company[] }) {
   );
 }
 
+interface CreditWithBalance { credit: FuelCredit; used: number; balance: number }
+
+function NewCreditDialog({ companies, providers }: { companies: Company[]; providers: Provider[] }) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [companyId, setCompanyId] = useState("");
+  const [providerId, setProviderId] = useState("none");
+  const [loading, setLoading] = useState(false);
+
+  const companyProviders = companyId ? providers.filter(p => p.company_id === companyId) : [];
+
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!companyId) return toast.error("Selecione a empresa");
+    const fd = new FormData(e.currentTarget);
+    const providerName = String(fd.get("provider_name") || "").trim();
+    if (!providerName) return toast.error("Informe o nome do posto");
+    const amount = Number(String(fd.get("amount")).replace(",", "."));
+    if (!isFinite(amount) || amount <= 0) return toast.error("Valor inválido");
+    setLoading(true);
+    const { error } = await (supabase.from("fuel_credits" as never) as never as { insert: (v: unknown) => Promise<{ error: Error | null }> }).insert({
+      company_id: companyId,
+      provider_id: providerId === "none" ? null : providerId,
+      provider_name: providerName,
+      cnpj: String(fd.get("cnpj") || "") || null,
+      amount,
+      paid_date: String(fd.get("paid_date")),
+      notes: String(fd.get("notes") || "") || null,
+      created_by: user?.id,
+    });
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Crédito antecipado registrado");
+    qc.invalidateQueries({ queryKey: ["abastecimentos"] });
+    setOpen(false);
+    setCompanyId(""); setProviderId("none");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline"><Wallet className="mr-1 h-4 w-4" /> Crédito Antecipado</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Novo Crédito Antecipado</DialogTitle></DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Empresa</Label>
+              <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setProviderId("none"); }}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {companies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Posto cadastrado (opcional)</Label>
+              <Select value={providerId} onValueChange={(v) => {
+                setProviderId(v);
+                const found = providers.find(p => p.id === v);
+                if (found) {
+                  const input = document.getElementById("provider_name") as HTMLInputElement | null;
+                  if (input) input.value = found.name;
+                }
+              }} disabled={!companyId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Manual —</SelectItem>
+                  {companyProviders.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="provider_name">Nome do Posto</Label>
+              <Input id="provider_name" name="provider_name" required maxLength={120} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cnpj">CNPJ</Label>
+              <Input id="cnpj" name="cnpj" maxLength={20} placeholder="00.000.000/0000-00" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="amount">Valor do crédito (R$)</Label>
+              <Input id="amount" name="amount" inputMode="decimal" required placeholder="0,00" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="paid_date">Data do pagamento</Label>
+              <Input id="paid_date" name="paid_date" type="date" required defaultValue={today()} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="notes">Observações (opcional)</Label>
+            <Textarea id="notes" name="notes" maxLength={500} rows={2} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button type="submit" disabled={loading}>{loading ? "Salvando..." : "Salvar"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function NewRefuelDialog({
-  companies, vehicles, providers,
-}: { companies: Company[]; vehicles: Vehicle[]; providers: Provider[] }) {
+  companies, vehicles, providers, credits,
+}: { companies: Company[]; vehicles: Vehicle[]; providers: Provider[]; credits: CreditWithBalance[] }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -519,6 +628,8 @@ function NewRefuelDialog({
   const [vehicleId, setVehicleId] = useState("");
   const [providerId, setProviderId] = useState("none");
   const [fuelType, setFuelType] = useState("diesel");
+  const [paymentMethod, setPaymentMethod] = useState("pix");
+  const [creditId, setCreditId] = useState("none");
   const [liters, setLiters] = useState("");
   const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(false);
@@ -532,6 +643,10 @@ function NewRefuelDialog({
 
   const companyVehicles = companyId ? vehicles.filter(v => v.company_id === companyId) : [];
   const companyProviders = companyId ? providers.filter(p => p.company_id === companyId) : [];
+  const availableCredits = companyId
+    ? credits.filter(c => c.credit.company_id === companyId && c.balance > 0 &&
+        (providerId === "none" || !c.credit.provider_id || c.credit.provider_id === providerId))
+    : [];
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -541,6 +656,12 @@ function NewRefuelDialog({
     const p = parseFloat(price.replace(",", "."));
     if (!isFinite(l) || l <= 0) return toast.error("Litros inválido");
     if (!isFinite(p) || p < 0) return toast.error("Preço inválido");
+    if (paymentMethod === "credito_antecipado") {
+      if (creditId === "none") return toast.error("Selecione o crédito antecipado a consumir");
+      const c = credits.find(x => x.credit.id === creditId);
+      if (!c) return toast.error("Crédito não encontrado");
+      if (l * p > c.balance + 0.001) return toast.error(`Saldo insuficiente. Disponível: ${brl(c.balance)}`);
+    }
     const fd = new FormData(e.currentTarget);
     setLoading(true);
     const { error } = await supabase.from("fuel_refuels").insert({
@@ -553,17 +674,19 @@ function NewRefuelDialog({
       price_per_liter: p,
       total_amount: Number((l * p).toFixed(2)),
       odometer: fd.get("odometer") ? parseInt(String(fd.get("odometer")), 10) : null,
-      driver_name: String(fd.get("driver_name") || "") || null,
+      requisition_number: String(fd.get("requisition_number") || "") || null,
+      payment_method: paymentMethod,
+      credit_id: paymentMethod === "credito_antecipado" && creditId !== "none" ? creditId : null,
       notes: String(fd.get("notes") || "") || null,
       created_by: user?.id,
-    });
+    } as never);
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Abastecimento registrado");
     qc.invalidateQueries({ queryKey: ["abastecimentos"] });
     setOpen(false);
     setCompanyId(""); setVehicleId(""); setProviderId("none");
-    setLiters(""); setPrice("");
+    setLiters(""); setPrice(""); setPaymentMethod("pix"); setCreditId("none");
   };
 
   return (
@@ -577,7 +700,7 @@ function NewRefuelDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Empresa</Label>
-              <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setVehicleId(""); setProviderId("none"); }}>
+              <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setVehicleId(""); setProviderId("none"); setCreditId("none"); }}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {companies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -598,8 +721,8 @@ function NewRefuelDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Prestador (opcional)</Label>
-              <Select value={providerId} onValueChange={setProviderId} disabled={!companyId}>
+              <Label>Prestador / Posto</Label>
+              <Select value={providerId} onValueChange={(v) => { setProviderId(v); setCreditId("none"); }} disabled={!companyId}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">— Sem prestador —</SelectItem>
@@ -631,19 +754,49 @@ function NewRefuelDialog({
               <Input id="price" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} required placeholder="0,000" />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Forma de pagamento</Label>
+              <Select value={paymentMethod} onValueChange={(v) => { setPaymentMethod(v); if (v !== "credito_antecipado") setCreditId("none"); }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {FUEL_PAYMENT_METHODS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="requisition_number">Nº da Requisição</Label>
+              <Input id="requisition_number" name="requisition_number" maxLength={50} placeholder="Ex.: REQ-001" />
+            </div>
+          </div>
+          {paymentMethod === "credito_antecipado" && (
+            <div className="space-y-1.5">
+              <Label>Crédito antecipado a consumir</Label>
+              <Select value={creditId} onValueChange={setCreditId} disabled={!companyId}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Selecione —</SelectItem>
+                  {availableCredits.map(({ credit, balance }) => (
+                    <SelectItem key={credit.id} value={credit.id}>
+                      {credit.provider_name} — Saldo {brl(balance)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {availableCredits.length === 0 && companyId && (
+                <p className="text-xs text-muted-foreground">Nenhum crédito disponível para esta empresa/posto.</p>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="odometer">Hodômetro (km)</Label>
               <Input id="odometer" name="odometer" type="number" min={0} />
             </div>
             <div className="space-y-1.5 col-span-2">
-              <Label htmlFor="driver_name">Motorista (opcional)</Label>
-              <Input id="driver_name" name="driver_name" maxLength={100} />
+              <Label htmlFor="notes">Observações (opcional)</Label>
+              <Input id="notes" name="notes" maxLength={500} />
             </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="notes">Observações (opcional)</Label>
-            <Textarea id="notes" name="notes" maxLength={500} rows={2} />
           </div>
           <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
             Total: <span className="font-semibold">{brl(total)}</span>
