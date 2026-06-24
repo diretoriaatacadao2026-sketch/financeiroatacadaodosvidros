@@ -16,11 +16,13 @@ const NAV = [
 
 
 export function AppLayout({ children }: { children?: ReactNode }) {
-  const { user, roles, signOut } = useAuth();
+  const { user, roles, signOut, hasRole } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const initial = (user?.email ?? "?").charAt(0).toUpperCase();
   const roleLabels = roles.map((r) => ROLE_LABEL[r]).join(" · ");
+  const navItems = NAV.filter((n) => !n.adminOnly || hasRole("admin"));
+
 
   return (
     <div className="flex min-h-screen bg-background">
