@@ -544,6 +544,7 @@ export type Database = {
         | "gestor"
         | "montador"
         | "vendedor"
+        | "colaborador"
       payment_method:
         | "pix"
         | "transferencia"
@@ -689,6 +690,7 @@ export const Constants = {
         "gestor",
         "montador",
         "vendedor",
+        "colaborador",
       ],
       payment_method: [
         "pix",
