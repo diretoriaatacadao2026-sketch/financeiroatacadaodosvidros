@@ -30,7 +30,21 @@ export const ROLE_LABEL: Record<string, string> = {
   admin: "Administrador",
   ivan: "Ivan",
   financeiro: "Financeiro",
+  colaborador: "Colaborador",
   gestor: "Gestor",
   montador: "Montador",
   vendedor: "Vendedor",
 };
+
+export const ASSIGNABLE_ROLES = [
+  { value: "admin", label: "Administrador" },
+  { value: "financeiro", label: "Financeiro" },
+  { value: "colaborador", label: "Colaborador" },
+] as const;
+
+export const PROFILE_STATUS_LABEL: Record<string, string> = {
+  pending: "Pendente",
+  approved: "Aprovado",
+  rejected: "Rejeitado",
+};
+
