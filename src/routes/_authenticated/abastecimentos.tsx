@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { brl, dateBR } from "@/lib/format";
-import { Fuel, Plus, Trash2, Truck, Building2 } from "lucide-react";
+import { brl, dateBR, FUEL_PAYMENT_METHODS } from "@/lib/format";
+import { Fuel, Plus, Trash2, Truck, Building2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/abastecimentos")({
@@ -39,6 +39,11 @@ interface Refuel {
   id: string; company_id: string; vehicle_id: string; provider_id: string | null;
   refuel_date: string; fuel_type: string; liters: number; price_per_liter: number;
   total_amount: number; odometer: number | null; driver_name: string | null; notes: string | null;
+  payment_method: string | null; requisition_number: string | null; credit_id: string | null;
+}
+interface FuelCredit {
+  id: string; company_id: string; provider_id: string | null; provider_name: string;
+  cnpj: string | null; amount: number; paid_date: string; notes: string | null;
 }
 
 const FUEL_TYPES = [
@@ -60,10 +65,12 @@ const daysAgo = (n: number) => {
 const baseDataQuery = queryOptions({
   queryKey: ["abastecimentos", "base"],
   queryFn: async () => {
-    const [companiesRes, vehiclesRes, providersRes] = await Promise.all([
+    const [companiesRes, vehiclesRes, providersRes, creditsRes] = await Promise.all([
       supabase.from("companies").select("id, name").order("name"),
       supabase.from("vehicles").select("id, company_id, plate, model, active").order("plate"),
       supabase.from("fuel_providers").select("id, company_id, name, active").order("name"),
+      (supabase.from("fuel_credits" as never) as never as { select: (q: string) => Promise<{ data: FuelCredit[] | null; error: Error | null }> })
+        .select("id, company_id, provider_id, provider_name, cnpj, amount, paid_date, notes"),
     ]);
     if (vehiclesRes.error) throw vehiclesRes.error;
     if (providersRes.error) throw providersRes.error;
@@ -71,6 +78,7 @@ const baseDataQuery = queryOptions({
       companies: (companiesRes.data ?? []) as Company[],
       vehicles: (vehiclesRes.data ?? []) as Vehicle[],
       providers: (providersRes.data ?? []) as Provider[],
+      credits: (creditsRes.data ?? []) as FuelCredit[],
     };
   },
 });
@@ -88,7 +96,7 @@ const refuelsQuery = (f: Filters) => queryOptions({
   queryFn: async () => {
     let q = supabase
       .from("fuel_refuels")
-      .select("id, company_id, vehicle_id, provider_id, refuel_date, fuel_type, liters, price_per_liter, total_amount, odometer, driver_name, notes")
+      .select("id, company_id, vehicle_id, provider_id, refuel_date, fuel_type, liters, price_per_liter, total_amount, odometer, driver_name, notes, payment_method, requisition_number, credit_id")
       .gte("refuel_date", f.from)
       .lte("refuel_date", f.to)
       .order("refuel_date", { ascending: false })
