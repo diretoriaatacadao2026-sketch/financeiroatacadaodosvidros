@@ -50,6 +50,7 @@ export type Database = {
         Row: {
           account_id: string
           amount: number
+          budget_number: string | null
           client_name: string | null
           company_id: string
           created_at: string
@@ -65,6 +66,7 @@ export type Database = {
         Insert: {
           account_id: string
           amount: number
+          budget_number?: string | null
           client_name?: string | null
           company_id: string
           created_at?: string
@@ -80,6 +82,7 @@ export type Database = {
         Update: {
           account_id?: string
           amount?: number
+          budget_number?: string | null
           client_name?: string | null
           company_id?: string
           created_at?: string
@@ -130,6 +133,63 @@ export type Database = {
         }
         Relationships: []
       }
+      fuel_credits: {
+        Row: {
+          amount: number
+          cnpj: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          paid_date: string
+          provider_id: string | null
+          provider_name: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          cnpj?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          paid_date?: string
+          provider_id?: string | null
+          provider_name: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          cnpj?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          paid_date?: string
+          provider_id?: string | null
+          provider_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fuel_credits_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_credits_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "fuel_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fuel_providers: {
         Row: {
           active: boolean
@@ -170,15 +230,18 @@ export type Database = {
           company_id: string
           created_at: string
           created_by: string | null
+          credit_id: string | null
           driver_name: string | null
           fuel_type: string
           id: string
           liters: number
           notes: string | null
           odometer: number | null
+          payment_method: string | null
           price_per_liter: number
           provider_id: string | null
           refuel_date: string
+          requisition_number: string | null
           total_amount: number
           updated_at: string
           vehicle_id: string
@@ -187,15 +250,18 @@ export type Database = {
           company_id: string
           created_at?: string
           created_by?: string | null
+          credit_id?: string | null
           driver_name?: string | null
           fuel_type?: string
           id?: string
           liters: number
           notes?: string | null
           odometer?: number | null
+          payment_method?: string | null
           price_per_liter: number
           provider_id?: string | null
           refuel_date?: string
+          requisition_number?: string | null
           total_amount: number
           updated_at?: string
           vehicle_id: string
@@ -204,15 +270,18 @@ export type Database = {
           company_id?: string
           created_at?: string
           created_by?: string | null
+          credit_id?: string | null
           driver_name?: string | null
           fuel_type?: string
           id?: string
           liters?: number
           notes?: string | null
           odometer?: number | null
+          payment_method?: string | null
           price_per_liter?: number
           provider_id?: string | null
           refuel_date?: string
+          requisition_number?: string | null
           total_amount?: number
           updated_at?: string
           vehicle_id?: string
@@ -223,6 +292,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_refuels_credit_id_fkey"
+            columns: ["credit_id"]
+            isOneToOne: false
+            referencedRelation: "fuel_credits"
             referencedColumns: ["id"]
           },
           {
@@ -298,7 +374,7 @@ export type Database = {
       installers: {
         Row: {
           active: boolean
-          company_id: string
+          company_id: string | null
           created_at: string
           id: string
           name: string
@@ -307,7 +383,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
-          company_id: string
+          company_id?: string | null
           created_at?: string
           id?: string
           name: string
@@ -316,7 +392,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
-          company_id?: string
+          company_id?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -477,6 +553,7 @@ export type Database = {
         | "boleto"
         | "cheque"
         | "credito_loja"
+        | "credito_antecipado"
       tx_type: "entrada" | "saida"
     }
     CompositeTypes: {
@@ -622,6 +699,7 @@ export const Constants = {
         "boleto",
         "cheque",
         "credito_loja",
+        "credito_antecipado",
       ],
       tx_type: ["entrada", "saida"],
     },

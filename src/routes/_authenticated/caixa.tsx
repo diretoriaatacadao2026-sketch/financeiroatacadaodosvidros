@@ -53,6 +53,7 @@ interface Tx {
   number: number;
   tx_date: string;
   client_name: string | null;
+  budget_number: string | null;
   description: string;
   amount: number;
   payment_method: string;
@@ -81,7 +82,7 @@ const txQuery = (companyId: string | "all") =>
     queryFn: async () => {
       let q = supabase
         .from("cash_transactions")
-        .select("id, number, tx_date, client_name, description, amount, payment_method, tx_type, company_id, account_id")
+        .select("id, number, tx_date, client_name, budget_number, description, amount, payment_method, tx_type, company_id, account_id")
         .order("tx_date", { ascending: false })
         .order("number", { ascending: false })
         .limit(500);
@@ -198,6 +199,7 @@ function CaixaPage() {
                 <TableHead>Empresa</TableHead>
                 <TableHead>Conta</TableHead>
                 <TableHead>Cliente</TableHead>
+                <TableHead>Orçamento</TableHead>
                 <TableHead>Descrição</TableHead>
                 <TableHead>Pagamento</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
@@ -207,7 +209,7 @@ function CaixaPage() {
             <TableBody>
               {tx.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="py-10 text-center text-muted-foreground">
                     Nenhum lançamento ainda.
                   </TableCell>
                 </TableRow>
@@ -223,6 +225,7 @@ function CaixaPage() {
                     <TableCell className="text-sm">{comp?.name}</TableCell>
                     <TableCell className="text-sm">{acc?.name}</TableCell>
                     <TableCell className="text-sm">{t.client_name ?? "—"}</TableCell>
+                    <TableCell className="text-sm">{t.budget_number ?? "—"}</TableCell>
                     <TableCell className="max-w-xs truncate text-sm">{t.description}</TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="font-normal">{pm?.label}</Badge>
@@ -279,12 +282,13 @@ function NewTransactionDialog({ companies, accounts }: { companies: Company[]; a
       account_id: accountId,
       tx_date: String(fd.get("tx_date")),
       client_name: String(fd.get("client_name") || "") || null,
+      budget_number: String(fd.get("budget_number") || "") || null,
       description: String(fd.get("description")),
       amount: Number(String(fd.get("amount")).replace(",", ".")),
       payment_method: payment as never,
       tx_type: txType,
       created_by: user?.id,
-    });
+    } as never);
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Lançamento criado");
@@ -346,9 +350,15 @@ function NewTransactionDialog({ companies, accounts }: { companies: Company[]; a
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="client_name">Cliente (opcional)</Label>
-            <Input id="client_name" name="client_name" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="client_name">Cliente (opcional)</Label>
+              <Input id="client_name" name="client_name" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="budget_number">Nº do Orçamento</Label>
+              <Input id="budget_number" name="budget_number" placeholder="Ex.: 12345" />
+            </div>
           </div>
 
           <div className="space-y-1.5">
