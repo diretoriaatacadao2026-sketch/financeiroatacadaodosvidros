@@ -415,18 +415,21 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          status: Database["public"]["Enums"]["profile_status"]
         }
         Insert: {
           created_at?: string
           email?: string | null
           full_name?: string | null
           id: string
+          status?: Database["public"]["Enums"]["profile_status"]
         }
         Update: {
           created_at?: string
           email?: string | null
           full_name?: string | null
           id?: string
+          status?: Database["public"]["Enums"]["profile_status"]
         }
         Relationships: []
       }
@@ -555,6 +558,7 @@ export type Database = {
         | "cheque"
         | "credito_loja"
         | "credito_antecipado"
+      profile_status: "pending" | "approved" | "rejected"
       tx_type: "entrada" | "saida"
     }
     CompositeTypes: {
@@ -703,6 +707,7 @@ export const Constants = {
         "credito_loja",
         "credito_antecipado",
       ],
+      profile_status: ["pending", "approved", "rejected"],
       tx_type: ["entrada", "saida"],
     },
   },
