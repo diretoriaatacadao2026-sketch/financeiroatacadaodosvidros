@@ -153,11 +153,38 @@ function AbastecimentosPage() {
     return { totalAmount, totalLiters, avgPrice, count: refuels.length };
   }, [refuels]);
 
+  const creditBalances = useMemo(() => {
+    // For every credit: balance = amount - sum of refuels where credit_id = this.id
+    const usedByCredit = new Map<string, number>();
+    refuels.forEach((r) => {
+      if (r.credit_id) usedByCredit.set(r.credit_id, (usedByCredit.get(r.credit_id) ?? 0) + Number(r.total_amount));
+    });
+    return base.credits.map((c) => ({
+      credit: c,
+      used: usedByCredit.get(c.id) ?? 0,
+      balance: Number(c.amount) - (usedByCredit.get(c.id) ?? 0),
+    }));
+  }, [base.credits, refuels]);
+
+  const creditsFiltered = useMemo(
+    () => filters.companyId === "all" ? creditBalances : creditBalances.filter(c => c.credit.company_id === filters.companyId),
+    [creditBalances, filters.companyId],
+  );
+  const totalCreditBalance = creditsFiltered.reduce((s, c) => s + c.balance, 0);
+
   const deleteRefuel = async (id: string) => {
     if (!confirm("Excluir este abastecimento?")) return;
     const { error } = await supabase.from("fuel_refuels").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Abastecimento excluído");
+    qc.invalidateQueries({ queryKey: ["abastecimentos"] });
+  };
+
+  const deleteCredit = async (id: string) => {
+    if (!confirm("Excluir este crédito antecipado?")) return;
+    const { error } = await (supabase.from("fuel_credits" as never) as never as { delete: () => { eq: (c: string, v: string) => Promise<{ error: Error | null }> } }).delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Crédito excluído");
     qc.invalidateQueries({ queryKey: ["abastecimentos"] });
   };
 
@@ -171,8 +198,9 @@ function AbastecimentosPage() {
         <div className="flex flex-wrap gap-2">
           {canManage && <NewVehicleDialog companies={base.companies} />}
           {canManage && <NewProviderDialog companies={base.companies} />}
+          {canManage && <NewCreditDialog companies={base.companies} providers={base.providers} />}
           {canWrite && base.vehicles.length > 0 && (
-            <NewRefuelDialog companies={base.companies} vehicles={base.vehicles} providers={base.providers} />
+            <NewRefuelDialog companies={base.companies} vehicles={base.vehicles} providers={base.providers} credits={creditBalances} />
           )}
         </div>
       </div>
