@@ -42,7 +42,7 @@ export function AppLayout({ children }: { children?: ReactNode }) {
           </div>
         </div>
         <nav className="space-y-1 p-3">
-          {NAV.map(({ to, label, icon: Icon }) => {
+          {navItems.map(({ to, label, icon: Icon }) => {
             const active = pathname === to || pathname.startsWith(to + "/");
             return (
               <Link
