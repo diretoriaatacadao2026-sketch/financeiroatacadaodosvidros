@@ -250,7 +250,7 @@ function AbastecimentosPage() {
         </div>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card className="p-5">
           <div className="text-sm text-muted-foreground">Total gasto</div>
           <div className="mt-2 text-2xl font-bold">{brl(totals.totalAmount)}</div>
@@ -267,7 +267,63 @@ function AbastecimentosPage() {
           <div className="text-sm text-muted-foreground">Lançamentos</div>
           <div className="mt-2 text-2xl font-bold">{totals.count}</div>
         </Card>
+        <Card className="p-5">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Wallet className="h-4 w-4" /> Saldo de Créditos
+          </div>
+          <div className="mt-2 text-2xl font-bold text-[color:var(--success)]">{brl(totalCreditBalance)}</div>
+        </Card>
       </div>
+
+      {creditsFiltered.length > 0 && (
+        <Card className="overflow-hidden">
+          <div className="flex items-center gap-2 border-b p-4">
+            <Wallet className="h-4 w-4 text-primary" />
+            <h3 className="font-semibold">Créditos Antecipados</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Pago em</TableHead>
+                  <TableHead>Empresa</TableHead>
+                  <TableHead>Posto</TableHead>
+                  <TableHead>CNPJ</TableHead>
+                  <TableHead className="text-right">Valor pago</TableHead>
+                  <TableHead className="text-right">Consumido</TableHead>
+                  <TableHead className="text-right">Saldo</TableHead>
+                  <TableHead className="w-10" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {creditsFiltered.map(({ credit, used, balance }) => {
+                  const comp = base.companies.find(c => c.id === credit.company_id);
+                  return (
+                    <TableRow key={credit.id}>
+                      <TableCell className="text-sm">{dateBR(credit.paid_date)}</TableCell>
+                      <TableCell className="text-sm">{comp?.name ?? "—"}</TableCell>
+                      <TableCell className="text-sm font-medium">{credit.provider_name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{credit.cnpj ?? "—"}</TableCell>
+                      <TableCell className="text-right text-sm">{brl(Number(credit.amount))}</TableCell>
+                      <TableCell className="text-right text-sm text-muted-foreground">{brl(used)}</TableCell>
+                      <TableCell className={`text-right text-sm font-semibold ${balance <= 0 ? "text-destructive" : "text-[color:var(--success)]"}`}>
+                        {brl(balance)}
+                      </TableCell>
+                      <TableCell>
+                        {canDelete && (
+                          <Button variant="ghost" size="icon" onClick={() => deleteCredit(credit.id)}>
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      )}
 
       <Card className="overflow-hidden">
         <div className="flex items-center gap-2 border-b p-4">
@@ -286,7 +342,8 @@ function AbastecimentosPage() {
                 <TableHead className="text-right">Litros</TableHead>
                 <TableHead className="text-right">R$/L</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                <TableHead>Motorista</TableHead>
+                <TableHead>Pagamento</TableHead>
+                <TableHead>Requisição</TableHead>
                 <TableHead className="text-right">KM</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
@@ -310,7 +367,14 @@ function AbastecimentosPage() {
                     <TableCell className="text-right text-sm">{Number(r.liters).toFixed(2)}</TableCell>
                     <TableCell className="text-right text-sm">{brl(Number(r.price_per_liter))}</TableCell>
                     <TableCell className="text-right text-sm font-medium">{brl(Number(r.total_amount))}</TableCell>
-                    <TableCell className="text-sm">{r.driver_name ?? "—"}</TableCell>
+                    <TableCell>
+                      {r.payment_method ? (
+                        <Badge variant={r.payment_method === "credito_antecipado" ? "default" : "outline"} className="font-normal">
+                          {FUEL_PAYMENT_METHODS.find(m => m.value === r.payment_method)?.label ?? r.payment_method}
+                        </Badge>
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell className="text-sm">{r.requisition_number ?? "—"}</TableCell>
                     <TableCell className="text-right text-sm">{r.odometer ?? "—"}</TableCell>
                     <TableCell>
                       {canDelete && (
