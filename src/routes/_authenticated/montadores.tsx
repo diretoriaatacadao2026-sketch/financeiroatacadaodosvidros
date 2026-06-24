@@ -35,7 +35,7 @@ export const Route = createFileRoute("/_authenticated/montadores")({
 });
 
 interface Company { id: string; name: string }
-interface Installer { id: string; name: string; phone: string | null; active: boolean; company_id: string }
+interface Installer { id: string; name: string; phone: string | null; active: boolean; company_id: string | null }
 interface Feedback {
   id: string; installer_id: string; company_id: string;
   client_name: string | null; rating: number; comment: string | null; service_date: string;
@@ -46,9 +46,7 @@ const dataQuery = (companyId: string | "all") => queryOptions({
   queryFn: async () => {
     const [{ data: companies }, instRes, fbRes] = await Promise.all([
       supabase.from("companies").select("id, name").order("name"),
-      companyId === "all"
-        ? supabase.from("installers").select("id, name, phone, active, company_id").order("name")
-        : supabase.from("installers").select("id, name, phone, active, company_id").eq("company_id", companyId).order("name"),
+      supabase.from("installers").select("id, name, phone, active, company_id").order("name"),
       companyId === "all"
         ? supabase.from("installer_feedbacks").select("id, installer_id, company_id, client_name, rating, comment, service_date").order("service_date", { ascending: false }).limit(500)
         : supabase.from("installer_feedbacks").select("id, installer_id, company_id, client_name, rating, comment, service_date").eq("company_id", companyId).order("service_date", { ascending: false }).limit(500),
