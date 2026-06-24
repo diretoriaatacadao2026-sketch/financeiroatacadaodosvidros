@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedMontadoresRouteImport } from './routes/_authenticated/montadores'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCaixaRouteImport } from './routes/_authenticated/caixa'
@@ -30,6 +31,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedMontadoresRoute = AuthenticatedMontadoresRouteImport.update({
   id: '/montadores',
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/caixa': typeof AuthenticatedCaixaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/montadores': typeof AuthenticatedMontadoresRoute
+  '/usuarios': typeof AuthenticatedUsuariosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/caixa': typeof AuthenticatedCaixaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/montadores': typeof AuthenticatedMontadoresRoute
+  '/usuarios': typeof AuthenticatedUsuariosRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/_authenticated/caixa': typeof AuthenticatedCaixaRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/montadores': typeof AuthenticatedMontadoresRoute
+  '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -88,6 +97,7 @@ export interface FileRouteTypes {
     | '/caixa'
     | '/dashboard'
     | '/montadores'
+    | '/usuarios'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/caixa'
     | '/dashboard'
     | '/montadores'
+    | '/usuarios'
   id:
     | '__root__'
     | '/'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/_authenticated/caixa'
     | '/_authenticated/dashboard'
     | '/_authenticated/montadores'
+    | '/_authenticated/usuarios'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -135,6 +147,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/usuarios': {
+      id: '/_authenticated/usuarios'
+      path: '/usuarios'
+      fullPath: '/usuarios'
+      preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/montadores': {
       id: '/_authenticated/montadores'
@@ -172,6 +191,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCaixaRoute: typeof AuthenticatedCaixaRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedMontadoresRoute: typeof AuthenticatedMontadoresRoute
+  AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -179,6 +199,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCaixaRoute: AuthenticatedCaixaRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedMontadoresRoute: AuthenticatedMontadoresRoute,
+  AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

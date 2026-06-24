@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Wallet, LogOut, Building2, Menu, Star, Fuel } from "lucide-react";
+import { LayoutDashboard, Wallet, LogOut, Building2, Menu, Star, Fuel, Users } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/format";
@@ -7,18 +7,22 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/caixa", label: "Fechamento de Caixa", icon: Wallet },
-  { to: "/montadores", label: "Feedback Montadores", icon: Star },
-  { to: "/abastecimentos", label: "Abastecimentos", icon: Fuel },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, adminOnly: false },
+  { to: "/caixa", label: "Fechamento de Caixa", icon: Wallet, adminOnly: false },
+  { to: "/montadores", label: "Feedback Montadores", icon: Star, adminOnly: false },
+  { to: "/abastecimentos", label: "Abastecimentos", icon: Fuel, adminOnly: false },
+  { to: "/usuarios", label: "Usuários", icon: Users, adminOnly: true },
 ] as const;
 
+
 export function AppLayout({ children }: { children?: ReactNode }) {
-  const { user, roles, signOut } = useAuth();
+  const { user, roles, signOut, hasRole } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const initial = (user?.email ?? "?").charAt(0).toUpperCase();
   const roleLabels = roles.map((r) => ROLE_LABEL[r]).join(" · ");
+  const navItems = NAV.filter((n) => !n.adminOnly || hasRole("admin"));
+
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -38,7 +42,7 @@ export function AppLayout({ children }: { children?: ReactNode }) {
           </div>
         </div>
         <nav className="space-y-1 p-3">
-          {NAV.map(({ to, label, icon: Icon }) => {
+          {navItems.map(({ to, label, icon: Icon }) => {
             const active = pathname === to || pathname.startsWith(to + "/");
             return (
               <Link
