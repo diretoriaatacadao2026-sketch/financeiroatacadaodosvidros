@@ -12,9 +12,18 @@ export const PAYMENT_METHODS = [
   { value: "dinheiro", label: "Dinheiro" },
   { value: "cartao_debito", label: "Cartão Débito" },
   { value: "cartao_credito", label: "Cartão Crédito" },
+  { value: "credito_antecipado", label: "Crédito Antecipado" },
   { value: "boleto", label: "Boleto" },
   { value: "cheque", label: "Cheque" },
   { value: "credito_loja", label: "Crédito Loja" },
+] as const;
+
+export const FUEL_PAYMENT_METHODS = [
+  { value: "pix", label: "PIX" },
+  { value: "cartao_debito", label: "Débito" },
+  { value: "cartao_credito", label: "Crédito" },
+  { value: "credito_antecipado", label: "Crédito Antecipado" },
+  { value: "dinheiro", label: "Dinheiro" },
 ] as const;
 
 export const ROLE_LABEL: Record<string, string> = {
