@@ -156,8 +156,9 @@ function AuthPage() {
                   {loading ? "Criando..." : "Criar conta"}
                 </Button>
                 <p className="text-center text-xs text-muted-foreground">
-                  O primeiro usuário criado vira Administrador.
+                  Novos cadastros ficam pendentes até o Administrador aprovar e atribuir o tipo de usuário.
                 </p>
+
               </form>
             </TabsContent>
           </Tabs>
