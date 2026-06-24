@@ -140,7 +140,7 @@ function MontadoresPage() {
           <p className="text-sm text-muted-foreground">Avaliações, média geral e ranking por montador.</p>
         </div>
         <div className="flex gap-2">
-          {canManage && <NewInstallerDialog companies={data.companies} />}
+          {canManage && <NewInstallerDialog />}
           {canFeedback && data.installers.length > 0 && (
             <NewFeedbackDialog installers={data.installers} companies={data.companies} />
           )}
@@ -185,7 +185,6 @@ function MontadoresPage() {
               <TableRow>
                 <TableHead className="w-14">#</TableHead>
                 <TableHead>Montador</TableHead>
-                <TableHead>Empresa</TableHead>
                 <TableHead>Média</TableHead>
                 <TableHead className="text-right">Avaliações</TableHead>
                 <TableHead className="w-10" />
@@ -193,10 +192,9 @@ function MontadoresPage() {
             </TableHeader>
             <TableBody>
               {ranking.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground">Nenhum montador cadastrado.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">Nenhum montador cadastrado.</TableCell></TableRow>
               )}
               {ranking.map((r, idx) => {
-                const comp = data.companies.find((c) => c.id === r.installer.company_id);
                 return (
                   <TableRow key={r.installer.id}>
                     <TableCell>
@@ -206,7 +204,6 @@ function MontadoresPage() {
                       {r.installer.name}
                       {!r.installer.active && <Badge variant="outline" className="ml-2 text-xs">inativo</Badge>}
                     </TableCell>
-                    <TableCell className="text-sm">{comp?.name}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Stars value={Math.round(r.avg)} />
@@ -277,28 +274,25 @@ function MontadoresPage() {
   );
 }
 
-function NewInstallerDialog({ companies }: { companies: Company[] }) {
+function NewInstallerDialog() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [companyId, setCompanyId] = useState("");
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!companyId) return toast.error("Selecione a empresa");
     const fd = new FormData(e.currentTarget);
     setLoading(true);
     const { error } = await supabase.from("installers").insert({
-      company_id: companyId,
+      company_id: null,
       name: String(fd.get("name")),
       phone: String(fd.get("phone") || "") || null,
-    });
+    } as never);
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Montador cadastrado");
     qc.invalidateQueries({ queryKey: ["montadores"] });
     setOpen(false);
-    setCompanyId("");
   };
 
   return (
@@ -309,15 +303,6 @@ function NewInstallerDialog({ companies }: { companies: Company[] }) {
       <DialogContent>
         <DialogHeader><DialogTitle>Novo Montador</DialogTitle></DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Empresa</Label>
-            <Select value={companyId} onValueChange={setCompanyId}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>
-                {companies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
           <div className="space-y-1.5">
             <Label htmlFor="name">Nome</Label>
             <Input id="name" name="name" required maxLength={100} />
@@ -341,19 +326,19 @@ function NewFeedbackDialog({ installers, companies }: { installers: Installer[];
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [installerId, setInstallerId] = useState("");
+  const [companyId, setCompanyId] = useState("");
   const [rating, setRating] = useState(5);
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!installerId) return toast.error("Selecione o montador");
-    const inst = installers.find((i) => i.id === installerId);
-    if (!inst) return;
+    if (!companyId) return toast.error("Selecione a empresa");
     const fd = new FormData(e.currentTarget);
     setLoading(true);
     const { error } = await supabase.from("installer_feedbacks").insert({
       installer_id: installerId,
-      company_id: inst.company_id,
+      company_id: companyId,
       client_name: String(fd.get("client_name") || "") || null,
       rating,
       comment: String(fd.get("comment") || "") || null,
@@ -367,6 +352,7 @@ function NewFeedbackDialog({ installers, companies }: { installers: Installer[];
     setOpen(false);
     setRating(5);
     setInstallerId("");
+    setCompanyId("");
   };
 
   return (
@@ -377,17 +363,27 @@ function NewFeedbackDialog({ installers, companies }: { installers: Installer[];
       <DialogContent>
         <DialogHeader><DialogTitle>Nova Avaliação</DialogTitle></DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Montador</Label>
-            <Select value={installerId} onValueChange={setInstallerId}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>
-                {installers.map((i) => {
-                  const c = companies.find((co) => co.id === i.company_id);
-                  return <SelectItem key={i.id} value={i.id}>{i.name} — {c?.name}</SelectItem>;
-                })}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Empresa</Label>
+              <Select value={companyId} onValueChange={setCompanyId}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {companies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Montador</Label>
+              <Select value={installerId} onValueChange={setInstallerId}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {installers.map((i) => (
+                    <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
