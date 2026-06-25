@@ -19,6 +19,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { brl, dateBR, FUEL_PAYMENT_METHODS } from "@/lib/format";
+import { useUserNames } from "@/lib/use-user-names";
 import { Fuel, Plus, Trash2, Truck, Building2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
