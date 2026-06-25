@@ -40,6 +40,7 @@ interface Installer { id: string; name: string; phone: string | null; active: bo
 interface Feedback {
   id: string; installer_id: string; company_id: string;
   client_name: string | null; rating: number; comment: string | null; service_date: string;
+  created_by: string | null;
 }
 
 const dataQuery = (companyId: string | "all") => queryOptions({
