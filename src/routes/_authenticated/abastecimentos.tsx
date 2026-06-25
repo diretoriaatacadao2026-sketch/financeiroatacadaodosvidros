@@ -40,10 +40,12 @@ interface Refuel {
   refuel_date: string; fuel_type: string; liters: number; price_per_liter: number;
   total_amount: number; odometer: number | null; driver_name: string | null; notes: string | null;
   payment_method: string | null; requisition_number: string | null; credit_id: string | null;
+  created_by: string | null;
 }
 interface FuelCredit {
   id: string; company_id: string; provider_id: string | null; provider_name: string;
   cnpj: string | null; amount: number; paid_date: string; notes: string | null;
+  created_by: string | null;
 }
 
 const FUEL_TYPES = [
