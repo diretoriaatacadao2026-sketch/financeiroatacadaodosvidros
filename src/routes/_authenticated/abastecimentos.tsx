@@ -314,6 +314,7 @@ function AbastecimentosPage() {
                       <TableCell className={`text-right text-sm font-semibold ${balance <= 0 ? "text-destructive" : "text-[color:var(--success)]"}`}>
                         {brl(balance)}
                       </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{userName(credit.created_by)}</TableCell>
                       <TableCell>
                         {canDelete && (
                           <Button variant="ghost" size="icon" onClick={() => deleteCredit(credit.id)}>
