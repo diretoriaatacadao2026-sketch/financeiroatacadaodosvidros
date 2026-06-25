@@ -246,6 +246,7 @@ function CaixaPage() {
                         {brl(Number(t.amount))}
                       </span>
                     </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{userName(t.created_by)}</TableCell>
                     <TableCell>
                       {canDelete && (
                         <Button variant="ghost" size="icon" onClick={() => onDelete(t.id)}>
