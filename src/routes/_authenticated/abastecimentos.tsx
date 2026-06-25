@@ -357,7 +357,7 @@ function AbastecimentosPage() {
             </TableHeader>
             <TableBody>
               {refuels.length === 0 && (
-                <TableRow><TableCell colSpan={12} className="py-10 text-center text-muted-foreground">Nenhum abastecimento no período.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={13} className="py-10 text-center text-muted-foreground">Nenhum abastecimento no período.</TableCell></TableRow>
               )}
               {refuels.map((r) => {
                 const v = base.vehicles.find(x => x.id === r.vehicle_id);
