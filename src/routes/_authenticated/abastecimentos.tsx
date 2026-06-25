@@ -383,6 +383,7 @@ function AbastecimentosPage() {
                     </TableCell>
                     <TableCell className="text-sm">{r.requisition_number ?? "—"}</TableCell>
                     <TableCell className="text-right text-sm">{r.odometer ?? "—"}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{userName(r.created_by)}</TableCell>
                     <TableCell>
                       {canDelete && (
                         <Button variant="ghost" size="icon" onClick={() => deleteRefuel(r.id)}>
