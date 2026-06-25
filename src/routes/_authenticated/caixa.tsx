@@ -33,6 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { brl, dateBR, PAYMENT_METHODS } from "@/lib/format";
+import { useUserNames } from "@/lib/use-user-names";
 import { Plus, ArrowUpRight, ArrowDownRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -60,6 +61,7 @@ interface Tx {
   tx_type: "entrada" | "saida";
   company_id: string;
   account_id: string;
+  created_by: string | null;
 }
 
 const baseQuery = queryOptions({
@@ -82,7 +84,7 @@ const txQuery = (companyId: string | "all") =>
     queryFn: async () => {
       let q = supabase
         .from("cash_transactions")
-        .select("id, number, tx_date, client_name, budget_number, description, amount, payment_method, tx_type, company_id, account_id")
+        .select("id, number, tx_date, client_name, budget_number, description, amount, payment_method, tx_type, company_id, account_id, created_by")
         .order("tx_date", { ascending: false })
         .order("number", { ascending: false })
         .limit(500);
@@ -95,6 +97,7 @@ const txQuery = (companyId: string | "all") =>
 
 function CaixaPage() {
   const { hasRole } = useAuth();
+  const { display: userName } = useUserNames();
   const canWrite = hasRole(["admin", "financeiro", "gestor"]);
   const canDelete = hasRole(["admin", "financeiro"]);
   const [companyFilter, setCompanyFilter] = useState<string>("all");
@@ -203,13 +206,14 @@ function CaixaPage() {
                 <TableHead>Descrição</TableHead>
                 <TableHead>Pagamento</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
+                <TableHead>Registrado por</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {tx.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
                     Nenhum lançamento ainda.
                   </TableCell>
                 </TableRow>
@@ -242,6 +246,7 @@ function CaixaPage() {
                         {brl(Number(t.amount))}
                       </span>
                     </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{userName(t.created_by)}</TableCell>
                     <TableCell>
                       {canDelete && (
                         <Button variant="ghost" size="icon" onClick={() => onDelete(t.id)}>

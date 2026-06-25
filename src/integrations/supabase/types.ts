@@ -18,23 +18,29 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
+          created_by: string | null
           id: string
           kind: string
           name: string
+          updated_by: string | null
         }
         Insert: {
           company_id: string
           created_at?: string
+          created_by?: string | null
           id?: string
           kind: string
           name: string
+          updated_by?: string | null
         }
         Update: {
           company_id?: string
           created_at?: string
+          created_by?: string | null
           id?: string
           kind?: string
           name?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -62,6 +68,7 @@ export type Database = {
           tx_date: string
           tx_type: Database["public"]["Enums"]["tx_type"]
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           account_id: string
@@ -78,6 +85,7 @@ export type Database = {
           tx_date?: string
           tx_type: Database["public"]["Enums"]["tx_type"]
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           account_id?: string
@@ -94,6 +102,7 @@ export type Database = {
           tx_date?: string
           tx_type?: Database["public"]["Enums"]["tx_type"]
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -115,21 +124,27 @@ export type Database = {
       companies: {
         Row: {
           created_at: string
+          created_by: string | null
           id: string
           name: string
           slug: string
+          updated_by: string | null
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           id?: string
           name: string
           slug: string
+          updated_by?: string | null
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           id?: string
           name?: string
           slug?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -146,6 +161,7 @@ export type Database = {
           provider_id: string | null
           provider_name: string
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           amount: number
@@ -159,6 +175,7 @@ export type Database = {
           provider_id?: string | null
           provider_name: string
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           amount?: number
@@ -172,6 +189,7 @@ export type Database = {
           provider_id?: string | null
           provider_name?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -195,25 +213,31 @@ export type Database = {
           active: boolean
           company_id: string
           created_at: string
+          created_by: string | null
           id: string
           name: string
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           active?: boolean
           company_id: string
           created_at?: string
+          created_by?: string | null
           id?: string
           name: string
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           active?: boolean
           company_id?: string
           created_at?: string
+          created_by?: string | null
           id?: string
           name?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -244,6 +268,7 @@ export type Database = {
           requisition_number: string | null
           total_amount: number
           updated_at: string
+          updated_by: string | null
           vehicle_id: string
         }
         Insert: {
@@ -264,6 +289,7 @@ export type Database = {
           requisition_number?: string | null
           total_amount: number
           updated_at?: string
+          updated_by?: string | null
           vehicle_id: string
         }
         Update: {
@@ -284,6 +310,7 @@ export type Database = {
           requisition_number?: string | null
           total_amount?: number
           updated_at?: string
+          updated_by?: string | null
           vehicle_id?: string
         }
         Relationships: [
@@ -329,6 +356,7 @@ export type Database = {
           rating: number
           service_date: string
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           client_name?: string | null
@@ -341,6 +369,7 @@ export type Database = {
           rating: number
           service_date?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           client_name?: string | null
@@ -353,6 +382,7 @@ export type Database = {
           rating?: number
           service_date?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -376,28 +406,34 @@ export type Database = {
           active: boolean
           company_id: string | null
           created_at: string
+          created_by: string | null
           id: string
           name: string
           phone: string | null
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           active?: boolean
           company_id?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           name: string
           phone?: string | null
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           active?: boolean
           company_id?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           name?: string
           phone?: string | null
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -485,28 +521,34 @@ export type Database = {
           active: boolean
           company_id: string
           created_at: string
+          created_by: string | null
           id: string
           model: string | null
           plate: string
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           active?: boolean
           company_id: string
           created_at?: string
+          created_by?: string | null
           id?: string
           model?: string | null
           plate: string
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           active?: boolean
           company_id?: string
           created_at?: string
+          created_by?: string | null
           id?: string
           model?: string | null
           plate?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {

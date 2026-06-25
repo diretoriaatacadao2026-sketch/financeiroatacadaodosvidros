@@ -19,6 +19,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { brl, dateBR, FUEL_PAYMENT_METHODS } from "@/lib/format";
+import { useUserNames } from "@/lib/use-user-names";
 import { Fuel, Plus, Trash2, Truck, Building2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
@@ -40,10 +41,12 @@ interface Refuel {
   refuel_date: string; fuel_type: string; liters: number; price_per_liter: number;
   total_amount: number; odometer: number | null; driver_name: string | null; notes: string | null;
   payment_method: string | null; requisition_number: string | null; credit_id: string | null;
+  created_by: string | null;
 }
 interface FuelCredit {
   id: string; company_id: string; provider_id: string | null; provider_name: string;
   cnpj: string | null; amount: number; paid_date: string; notes: string | null;
+  created_by: string | null;
 }
 
 const FUEL_TYPES = [
@@ -70,7 +73,7 @@ const baseDataQuery = queryOptions({
       supabase.from("vehicles").select("id, company_id, plate, model, active").order("plate"),
       supabase.from("fuel_providers").select("id, company_id, name, active").order("name"),
       (supabase.from("fuel_credits" as never) as never as { select: (q: string) => Promise<{ data: FuelCredit[] | null; error: Error | null }> })
-        .select("id, company_id, provider_id, provider_name, cnpj, amount, paid_date, notes"),
+        .select("id, company_id, provider_id, provider_name, cnpj, amount, paid_date, notes, created_by"),
     ]);
     if (vehiclesRes.error) throw vehiclesRes.error;
     if (providersRes.error) throw providersRes.error;
@@ -96,7 +99,7 @@ const refuelsQuery = (f: Filters) => queryOptions({
   queryFn: async () => {
     let q = supabase
       .from("fuel_refuels")
-      .select("id, company_id, vehicle_id, provider_id, refuel_date, fuel_type, liters, price_per_liter, total_amount, odometer, driver_name, notes, payment_method, requisition_number, credit_id")
+      .select("id, company_id, vehicle_id, provider_id, refuel_date, fuel_type, liters, price_per_liter, total_amount, odometer, driver_name, notes, payment_method, requisition_number, credit_id, created_by")
       .gte("refuel_date", f.from)
       .lte("refuel_date", f.to)
       .order("refuel_date", { ascending: false })
@@ -112,6 +115,7 @@ const refuelsQuery = (f: Filters) => queryOptions({
 
 function AbastecimentosPage() {
   const { hasRole } = useAuth();
+  const { display: userName } = useUserNames();
   const canManage = hasRole(["admin", "gestor", "financeiro"]);
   const canWrite = hasRole(["admin", "gestor", "financeiro", "vendedor"]);
   const canDelete = hasRole(["admin", "gestor", "financeiro"]);
@@ -292,6 +296,7 @@ function AbastecimentosPage() {
                   <TableHead className="text-right">Valor pago</TableHead>
                   <TableHead className="text-right">Consumido</TableHead>
                   <TableHead className="text-right">Saldo</TableHead>
+                  <TableHead>Registrado por</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -309,6 +314,7 @@ function AbastecimentosPage() {
                       <TableCell className={`text-right text-sm font-semibold ${balance <= 0 ? "text-destructive" : "text-[color:var(--success)]"}`}>
                         {brl(balance)}
                       </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{userName(credit.created_by)}</TableCell>
                       <TableCell>
                         {canDelete && (
                           <Button variant="ghost" size="icon" onClick={() => deleteCredit(credit.id)}>
@@ -345,12 +351,13 @@ function AbastecimentosPage() {
                 <TableHead>Pagamento</TableHead>
                 <TableHead>Requisição</TableHead>
                 <TableHead className="text-right">KM</TableHead>
+                <TableHead>Registrado por</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {refuels.length === 0 && (
-                <TableRow><TableCell colSpan={12} className="py-10 text-center text-muted-foreground">Nenhum abastecimento no período.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={13} className="py-10 text-center text-muted-foreground">Nenhum abastecimento no período.</TableCell></TableRow>
               )}
               {refuels.map((r) => {
                 const v = base.vehicles.find(x => x.id === r.vehicle_id);
@@ -376,6 +383,7 @@ function AbastecimentosPage() {
                     </TableCell>
                     <TableCell className="text-sm">{r.requisition_number ?? "—"}</TableCell>
                     <TableCell className="text-right text-sm">{r.odometer ?? "—"}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{userName(r.created_by)}</TableCell>
                     <TableCell>
                       {canDelete && (
                         <Button variant="ghost" size="icon" onClick={() => deleteRefuel(r.id)}>

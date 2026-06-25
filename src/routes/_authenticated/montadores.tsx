@@ -20,6 +20,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { dateBR } from "@/lib/format";
+import { useUserNames } from "@/lib/use-user-names";
 import { Plus, Star, Trash2, Trophy, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,7 @@ interface Installer { id: string; name: string; phone: string | null; active: bo
 interface Feedback {
   id: string; installer_id: string; company_id: string;
   client_name: string | null; rating: number; comment: string | null; service_date: string;
+  created_by: string | null;
 }
 
 const dataQuery = (companyId: string | "all") => queryOptions({
@@ -48,8 +50,8 @@ const dataQuery = (companyId: string | "all") => queryOptions({
       supabase.from("companies").select("id, name").order("name"),
       supabase.from("installers").select("id, name, phone, active, company_id").order("name"),
       companyId === "all"
-        ? supabase.from("installer_feedbacks").select("id, installer_id, company_id, client_name, rating, comment, service_date").order("service_date", { ascending: false }).limit(500)
-        : supabase.from("installer_feedbacks").select("id, installer_id, company_id, client_name, rating, comment, service_date").eq("company_id", companyId).order("service_date", { ascending: false }).limit(500),
+        ? supabase.from("installer_feedbacks").select("id, installer_id, company_id, client_name, rating, comment, service_date, created_by").order("service_date", { ascending: false }).limit(500)
+        : supabase.from("installer_feedbacks").select("id, installer_id, company_id, client_name, rating, comment, service_date, created_by").eq("company_id", companyId).order("service_date", { ascending: false }).limit(500),
     ]);
     if (instRes.error) throw instRes.error;
     if (fbRes.error) throw fbRes.error;
@@ -84,6 +86,7 @@ function Stars({ value, size = 16, onChange }: { value: number; size?: number; o
 
 function MontadoresPage() {
   const { hasRole } = useAuth();
+  const { display: userName } = useUserNames();
   const canManage = hasRole(["admin", "gestor", "financeiro"]);
   const canFeedback = hasRole(["admin", "gestor", "financeiro", "vendedor"]);
   const canDelete = hasRole(["admin", "gestor"]);
@@ -240,12 +243,13 @@ function MontadoresPage() {
                 <TableHead>Cliente</TableHead>
                 <TableHead>Nota</TableHead>
                 <TableHead>Comentário</TableHead>
+                <TableHead>Registrado por</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.feedbacks.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground">Nenhuma avaliação ainda.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="py-10 text-center text-muted-foreground">Nenhuma avaliação ainda.</TableCell></TableRow>
               )}
               {data.feedbacks.map((f) => {
                 const inst = data.installers.find((i) => i.id === f.installer_id);
@@ -256,6 +260,7 @@ function MontadoresPage() {
                     <TableCell className="text-sm">{f.client_name ?? "—"}</TableCell>
                     <TableCell><Stars value={f.rating} /></TableCell>
                     <TableCell className="max-w-md truncate text-sm text-muted-foreground">{f.comment ?? "—"}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{userName(f.created_by)}</TableCell>
                     <TableCell>
                       {canDelete && (
                         <Button variant="ghost" size="icon" onClick={() => deleteFeedback(f.id)}>
