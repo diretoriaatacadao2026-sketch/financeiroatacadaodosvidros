@@ -84,7 +84,7 @@ const txQuery = (companyId: string | "all") =>
     queryFn: async () => {
       let q = supabase
         .from("cash_transactions")
-        .select("id, number, tx_date, client_name, budget_number, description, amount, payment_method, tx_type, company_id, account_id")
+        .select("id, number, tx_date, client_name, budget_number, description, amount, payment_method, tx_type, company_id, account_id, created_by")
         .order("tx_date", { ascending: false })
         .order("number", { ascending: false })
         .limit(500);
