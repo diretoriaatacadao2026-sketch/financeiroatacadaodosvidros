@@ -98,7 +98,7 @@ const refuelsQuery = (f: Filters) => queryOptions({
   queryFn: async () => {
     let q = supabase
       .from("fuel_refuels")
-      .select("id, company_id, vehicle_id, provider_id, refuel_date, fuel_type, liters, price_per_liter, total_amount, odometer, driver_name, notes, payment_method, requisition_number, credit_id")
+      .select("id, company_id, vehicle_id, provider_id, refuel_date, fuel_type, liters, price_per_liter, total_amount, odometer, driver_name, notes, payment_method, requisition_number, credit_id, created_by")
       .gte("refuel_date", f.from)
       .lte("refuel_date", f.to)
       .order("refuel_date", { ascending: false })
