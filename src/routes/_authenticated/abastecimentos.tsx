@@ -115,6 +115,7 @@ const refuelsQuery = (f: Filters) => queryOptions({
 
 function AbastecimentosPage() {
   const { hasRole } = useAuth();
+  const { display: userName } = useUserNames();
   const canManage = hasRole(["admin", "gestor", "financeiro"]);
   const canWrite = hasRole(["admin", "gestor", "financeiro", "vendedor"]);
   const canDelete = hasRole(["admin", "gestor", "financeiro"]);
