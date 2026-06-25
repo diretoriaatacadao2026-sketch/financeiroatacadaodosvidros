@@ -50,8 +50,8 @@ const dataQuery = (companyId: string | "all") => queryOptions({
       supabase.from("companies").select("id, name").order("name"),
       supabase.from("installers").select("id, name, phone, active, company_id").order("name"),
       companyId === "all"
-        ? supabase.from("installer_feedbacks").select("id, installer_id, company_id, client_name, rating, comment, service_date").order("service_date", { ascending: false }).limit(500)
-        : supabase.from("installer_feedbacks").select("id, installer_id, company_id, client_name, rating, comment, service_date").eq("company_id", companyId).order("service_date", { ascending: false }).limit(500),
+        ? supabase.from("installer_feedbacks").select("id, installer_id, company_id, client_name, rating, comment, service_date, created_by").order("service_date", { ascending: false }).limit(500)
+        : supabase.from("installer_feedbacks").select("id, installer_id, company_id, client_name, rating, comment, service_date, created_by").eq("company_id", companyId).order("service_date", { ascending: false }).limit(500),
     ]);
     if (instRes.error) throw instRes.error;
     if (fbRes.error) throw fbRes.error;
