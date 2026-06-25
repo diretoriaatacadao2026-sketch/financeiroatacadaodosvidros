@@ -249,7 +249,7 @@ function MontadoresPage() {
             </TableHeader>
             <TableBody>
               {data.feedbacks.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground">Nenhuma avaliação ainda.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="py-10 text-center text-muted-foreground">Nenhuma avaliação ainda.</TableCell></TableRow>
               )}
               {data.feedbacks.map((f) => {
                 const inst = data.installers.find((i) => i.id === f.installer_id);
