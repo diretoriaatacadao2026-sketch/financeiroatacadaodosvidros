@@ -260,6 +260,7 @@ function MontadoresPage() {
                     <TableCell className="text-sm">{f.client_name ?? "—"}</TableCell>
                     <TableCell><Stars value={f.rating} /></TableCell>
                     <TableCell className="max-w-md truncate text-sm text-muted-foreground">{f.comment ?? "—"}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{userName(f.created_by)}</TableCell>
                     <TableCell>
                       {canDelete && (
                         <Button variant="ghost" size="icon" onClick={() => deleteFeedback(f.id)}>
