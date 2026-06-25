@@ -33,6 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { brl, dateBR, PAYMENT_METHODS } from "@/lib/format";
+import { useUserNames } from "@/lib/use-user-names";
 import { Plus, ArrowUpRight, ArrowDownRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
