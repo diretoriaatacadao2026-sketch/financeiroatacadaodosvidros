@@ -243,6 +243,7 @@ function MontadoresPage() {
                 <TableHead>Cliente</TableHead>
                 <TableHead>Nota</TableHead>
                 <TableHead>Comentário</TableHead>
+                <TableHead>Registrado por</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
