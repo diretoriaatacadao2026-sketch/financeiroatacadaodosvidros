@@ -72,7 +72,7 @@ const baseDataQuery = queryOptions({
       supabase.from("vehicles").select("id, company_id, plate, model, active").order("plate"),
       supabase.from("fuel_providers").select("id, company_id, name, active").order("name"),
       (supabase.from("fuel_credits" as never) as never as { select: (q: string) => Promise<{ data: FuelCredit[] | null; error: Error | null }> })
-        .select("id, company_id, provider_id, provider_name, cnpj, amount, paid_date, notes"),
+        .select("id, company_id, provider_id, provider_name, cnpj, amount, paid_date, notes, created_by"),
     ]);
     if (vehiclesRes.error) throw vehiclesRes.error;
     if (providersRes.error) throw providersRes.error;
