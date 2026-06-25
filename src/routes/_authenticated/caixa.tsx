@@ -61,6 +61,7 @@ interface Tx {
   tx_type: "entrada" | "saida";
   company_id: string;
   account_id: string;
+  created_by: string | null;
 }
 
 const baseQuery = queryOptions({
