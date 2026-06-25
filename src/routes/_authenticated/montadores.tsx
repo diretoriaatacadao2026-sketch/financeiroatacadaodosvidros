@@ -86,6 +86,7 @@ function Stars({ value, size = 16, onChange }: { value: number; size?: number; o
 
 function MontadoresPage() {
   const { hasRole } = useAuth();
+  const { display: userName } = useUserNames();
   const canManage = hasRole(["admin", "gestor", "financeiro"]);
   const canFeedback = hasRole(["admin", "gestor", "financeiro", "vendedor"]);
   const canDelete = hasRole(["admin", "gestor"]);
