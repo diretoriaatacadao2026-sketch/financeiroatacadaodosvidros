@@ -351,6 +351,7 @@ function AbastecimentosPage() {
                 <TableHead>Pagamento</TableHead>
                 <TableHead>Requisição</TableHead>
                 <TableHead className="text-right">KM</TableHead>
+                <TableHead>Registrado por</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
