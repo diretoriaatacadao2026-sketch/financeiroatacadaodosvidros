@@ -296,6 +296,7 @@ function AbastecimentosPage() {
                   <TableHead className="text-right">Valor pago</TableHead>
                   <TableHead className="text-right">Consumido</TableHead>
                   <TableHead className="text-right">Saldo</TableHead>
+                  <TableHead>Registrado por</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
