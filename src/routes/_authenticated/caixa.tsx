@@ -97,6 +97,7 @@ const txQuery = (companyId: string | "all") =>
 
 function CaixaPage() {
   const { hasRole } = useAuth();
+  const { display: userName } = useUserNames();
   const canWrite = hasRole(["admin", "financeiro", "gestor"]);
   const canDelete = hasRole(["admin", "financeiro"]);
   const [companyFilter, setCompanyFilter] = useState<string>("all");
