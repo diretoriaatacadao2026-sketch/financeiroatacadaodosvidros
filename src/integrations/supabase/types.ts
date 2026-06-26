@@ -562,7 +562,21 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      user_display_names: {
+        Row: {
+          full_name: string | null
+          id: string | null
+        }
+        Insert: {
+          full_name?: string | null
+          id?: string | null
+        }
+        Update: {
+          full_name?: string | null
+          id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       current_user_has_any_role: {

@@ -10,10 +10,10 @@ async function loadUserNames(): Promise<UserNameMap> {
   if (cache) return cache;
   if (inflight) return inflight;
   inflight = (async () => {
-    const { data } = await supabase.from("profiles").select("id, full_name, email");
+    const { data } = await supabase.from("user_display_names" as never).select("id, full_name");
     const map: UserNameMap = {};
-    (data ?? []).forEach((p: { id: string; full_name: string | null; email: string | null }) => {
-      map[p.id] = p.full_name || p.email || p.id.slice(0, 8);
+    ((data ?? []) as Array<{ id: string; full_name: string | null }>).forEach((p) => {
+      map[p.id] = p.full_name || p.id.slice(0, 8);
     });
     cache = map;
     return map;
