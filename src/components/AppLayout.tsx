@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Wallet, LogOut, Building2, Menu, Star, Fuel, Users } from "lucide-react";
+import { LayoutDashboard, Wallet, LogOut, Building2, Menu, Star, Fuel, Users, FileText } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/format";
