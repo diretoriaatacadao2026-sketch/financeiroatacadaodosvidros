@@ -11,6 +11,8 @@ const NAV = [
   { to: "/caixa", label: "Fechamento de Caixa", icon: Wallet, adminOnly: false },
   { to: "/montadores", label: "Feedback Montadores", icon: Star, adminOnly: false },
   { to: "/abastecimentos", label: "Abastecimentos", icon: Fuel, adminOnly: false },
+  { to: "/relatorios", label: "Relatórios", icon: FileText, adminOnly: false },
+
   { to: "/usuarios", label: "Usuários", icon: Users, adminOnly: true },
 ] as const;
 
