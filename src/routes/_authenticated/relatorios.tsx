@@ -432,8 +432,9 @@ function RelAbastecimentos({ start, end, companyId }: { start: string; end: stri
               <TableRow key={r.id}>
                 <TableCell>{dateBR(r.refuel_date)}</TableCell>
                 <TableCell>{cmap[r.company_id] ?? "—"}</TableCell>
-                <TableCell>{vmap[r.vehicle_id] ?? "—"}</TableCell>
-                <TableCell>{pmap[r.provider_id] ?? "—"}</TableCell>
+                <TableCell>{r.vehicle_id ? vmap[r.vehicle_id] ?? "—" : "—"}</TableCell>
+                <TableCell>{r.provider_id ? pmap[r.provider_id] ?? "—" : "—"}</TableCell>
+
                 <TableCell>{r.fuel_type}</TableCell>
                 <TableCell>{r.requisition_number ?? "—"}</TableCell>
                 <TableCell>{FUEL_PAYMENT_METHODS.find((p) => p.value === r.payment_method)?.label ?? r.payment_method ?? "—"}</TableCell>
