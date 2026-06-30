@@ -441,3 +441,78 @@ function NewTransactionDialog({ companies, accounts }: { companies: Company[]; a
     </Dialog>
   );
 }
+
+function SupplyCard({
+  company, supply, date, canWrite, onSaved,
+}: {
+  company: Company;
+  supply: Supply | undefined;
+  date: string;
+  canWrite: boolean;
+  onSaved: () => void;
+}) {
+  const { user } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState<string>(supply ? String(supply.amount) : "");
+  const [saving, setSaving] = useState(false);
+
+  // Reset local input when supply/date changes
+  const supplyKey = `${supply?.id ?? "none"}-${date}`;
+  const [lastKey, setLastKey] = useState(supplyKey);
+  if (lastKey !== supplyKey) {
+    setLastKey(supplyKey);
+    setVal(supply ? String(supply.amount) : "");
+    setEditing(false);
+  }
+
+  const save = async () => {
+    const amount = Number(val.replace(",", "."));
+    if (!isFinite(amount) || amount < 0) return toast.error("Valor inválido");
+    setSaving(true);
+    const payload = {
+      company_id: company.id,
+      supply_date: date,
+      amount,
+      created_by: user?.id,
+    };
+    const { error } = await (supabase.from("daily_cash_supplies" as never) as never as {
+      upsert: (v: unknown, o: { onConflict: string }) => Promise<{ error: Error | null }>;
+    }).upsert(payload, { onConflict: "company_id,supply_date" });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Suprimento salvo");
+    setEditing(false);
+    onSaved();
+  };
+
+  return (
+    <div className="rounded-lg border bg-secondary/40 p-3">
+      <div className="text-xs text-muted-foreground">{company.name}</div>
+      {editing ? (
+        <div className="mt-2 flex items-center gap-2">
+          <Input
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            inputMode="decimal"
+            placeholder="0,00"
+            className="h-8"
+          />
+          <Button size="sm" onClick={save} disabled={saving}>{saving ? "..." : "OK"}</Button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">Suprimento</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">{brl(Number(supply?.amount ?? 0))}</span>
+            {canWrite && (
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditing(true)}>
+                Editar
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
