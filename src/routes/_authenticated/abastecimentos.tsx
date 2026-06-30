@@ -661,15 +661,16 @@ function NewRefuelDialog({
     e.preventDefault();
     if (!companyId) return toast.error("Selecione a empresa");
     if (!vehicleId) return toast.error("Selecione o veículo");
-    const l = parseFloat(liters.replace(",", "."));
+    const amt = parseFloat(paidAmount.replace(",", "."));
     const p = parseFloat(price.replace(",", "."));
-    if (!isFinite(l) || l <= 0) return toast.error("Litros inválido");
-    if (!isFinite(p) || p < 0) return toast.error("Preço inválido");
+    if (!isFinite(amt) || amt <= 0) return toast.error("Valor pago inválido");
+    if (!isFinite(p) || p <= 0) return toast.error("Preço/L inválido");
+    const l = amt / p;
     if (paymentMethod === "credito_antecipado") {
       if (creditId === "none") return toast.error("Selecione o crédito antecipado a consumir");
       const c = credits.find(x => x.credit.id === creditId);
       if (!c) return toast.error("Crédito não encontrado");
-      if (l * p > c.balance + 0.001) return toast.error(`Saldo insuficiente. Disponível: ${brl(c.balance)}`);
+      if (amt > c.balance + 0.001) return toast.error(`Saldo insuficiente. Disponível: ${brl(c.balance)}`);
     }
     const fd = new FormData(e.currentTarget);
     setLoading(true);
@@ -679,9 +680,9 @@ function NewRefuelDialog({
       provider_id: providerId === "none" ? null : providerId,
       refuel_date: String(fd.get("refuel_date")),
       fuel_type: fuelType,
-      liters: l,
+      liters: Number(l.toFixed(3)),
       price_per_liter: p,
-      total_amount: Number((l * p).toFixed(2)),
+      total_amount: Number(amt.toFixed(2)),
       odometer: fd.get("odometer") ? parseInt(String(fd.get("odometer")), 10) : null,
       requisition_number: String(fd.get("requisition_number") || "") || null,
       payment_method: paymentMethod,
@@ -695,8 +696,10 @@ function NewRefuelDialog({
     qc.invalidateQueries({ queryKey: ["abastecimentos"] });
     setOpen(false);
     setCompanyId(""); setVehicleId(""); setProviderId("none");
-    setLiters(""); setPrice(""); setPaymentMethod("pix"); setCreditId("none");
+    setPaidAmount(""); setPrice(""); setPaymentMethod("pix"); setCreditId("none");
   };
+
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
