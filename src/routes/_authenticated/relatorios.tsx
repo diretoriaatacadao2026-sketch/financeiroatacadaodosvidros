@@ -180,7 +180,8 @@ function Kpi({ label, value, accent }: { label: string; value: string; accent?: 
 }
 
 function RelFinanceiro({ start, end, companyId }: { start: string; end: string; companyId: string }) {
-  const { data } = useSuspenseQuery({
+  const [paymentFilter, setPaymentFilter] = useState<string>("all");
+  const { data: raw } = useSuspenseQuery({
     queryKey: ["rel-fin", start, end, companyId],
     queryFn: async () => {
       let q = supabase
@@ -194,6 +195,10 @@ function RelFinanceiro({ start, end, companyId }: { start: string; end: string; 
       return data ?? [];
     },
   });
+  const data = useMemo(
+    () => paymentFilter === "all" ? raw : raw.filter((t) => t.payment_method === paymentFilter),
+    [raw, paymentFilter],
+  );
   const companies = useSuspenseQuery(companiesQuery).data;
   const accountsQ = useSuspenseQuery({
     queryKey: ["rel-accounts"],
@@ -208,13 +213,74 @@ function RelFinanceiro({ start, end, companyId }: { start: string; end: string; 
   const entradas = data.filter((t) => t.tx_type === "entrada").reduce((s, t) => s + Number(t.amount), 0);
   const saidas = data.filter((t) => t.tx_type === "saida").reduce((s, t) => s + Number(t.amount), 0);
 
+  // Breakdown by payment method (always over raw set for context)
+  const byPayment = useMemo(() => {
+    const m = new Map<string, { entradas: number; saidas: number; count: number }>();
+    raw.forEach((t) => {
+      const x = m.get(t.payment_method) ?? { entradas: 0, saidas: 0, count: 0 };
+      if (t.tx_type === "entrada") x.entradas += Number(t.amount); else x.saidas += Number(t.amount);
+      x.count += 1;
+      m.set(t.payment_method, x);
+    });
+    return Array.from(m.entries()).map(([pm, v]) => ({
+      pm, label: PAYMENT_METHODS.find((p) => p.value === pm)?.label ?? pm, ...v,
+    })).sort((a, b) => (b.entradas + b.saidas) - (a.entradas + a.saidas));
+  }, [raw]);
+
   return (
     <div className="space-y-4">
+      <Card className="p-3 no-print">
+        <div className="flex flex-wrap items-center gap-3">
+          <Label className="text-xs">Forma de pagamento</Label>
+          <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+            <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              {PAYMENT_METHODS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {paymentFilter !== "all" && (
+            <span className="text-xs text-muted-foreground">
+              Filtrando por: {PAYMENT_METHODS.find((p) => p.value === paymentFilter)?.label}
+            </span>
+          )}
+        </div>
+      </Card>
+
       <div className="grid gap-3 sm:grid-cols-3">
         <Kpi label="Entradas" value={brl(entradas)} accent="text-emerald-600" />
         <Kpi label="Saídas" value={brl(saidas)} accent="text-rose-600" />
         <Kpi label="Saldo" value={brl(entradas - saidas)} />
       </div>
+
+      <Card className="p-0 overflow-hidden">
+        <div className="px-4 py-3 border-b font-medium text-sm">Resumo por forma de pagamento</div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Forma de pagamento</TableHead>
+              <TableHead className="text-right">Lançamentos</TableHead>
+              <TableHead className="text-right">Entradas</TableHead>
+              <TableHead className="text-right">Saídas</TableHead>
+              <TableHead className="text-right">Saldo</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {byPayment.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">—</TableCell></TableRow>
+            ) : byPayment.map((r) => (
+              <TableRow key={r.pm}>
+                <TableCell>{r.label}</TableCell>
+                <TableCell className="text-right">{r.count}</TableCell>
+                <TableCell className="text-right text-emerald-600">{brl(r.entradas)}</TableCell>
+                <TableCell className="text-right text-rose-600">{brl(r.saidas)}</TableCell>
+                <TableCell className="text-right">{brl(r.entradas - r.saidas)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+
       <Card className="p-0 overflow-hidden">
         <Table>
           <TableHeader>
@@ -254,6 +320,7 @@ function RelFinanceiro({ start, end, companyId }: { start: string; end: string; 
     </div>
   );
 }
+
 
 function RelFeedback({ start, end, companyId }: { start: string; end: string; companyId: string }) {
   const installersQ = useSuspenseQuery({
