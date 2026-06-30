@@ -151,20 +151,21 @@ function RelatoriosPage() {
 
         <TabsContent value="financeiro">
           <Suspense fallback={<div className="text-muted-foreground">Carregando...</div>}>
-            <RelFinanceiro start={range.start} end={range.end} companyId={companyId} />
+            <RelFinanceiro key={`${range.start}-${range.end}-${companyId}`} start={range.start} end={range.end} companyId={companyId} />
           </Suspense>
         </TabsContent>
         <TabsContent value="feedback">
           <Suspense fallback={<div className="text-muted-foreground">Carregando...</div>}>
-            <RelFeedback start={range.start} end={range.end} companyId={companyId} />
+            <RelFeedback key={`${range.start}-${range.end}-${companyId}`} start={range.start} end={range.end} companyId={companyId} />
           </Suspense>
         </TabsContent>
         <TabsContent value="abastecimentos">
           <Suspense fallback={<div className="text-muted-foreground">Carregando...</div>}>
-            <RelAbastecimentos start={range.start} end={range.end} companyId={companyId} />
+            <RelAbastecimentos key={`${range.start}-${range.end}-${companyId}`} start={range.start} end={range.end} companyId={companyId} />
           </Suspense>
         </TabsContent>
       </Tabs>
+
     </div>
   );
 }
