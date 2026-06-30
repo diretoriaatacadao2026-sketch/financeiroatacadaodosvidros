@@ -811,9 +811,11 @@ function NewRefuelDialog({
               <Input id="notes" name="notes" maxLength={500} />
             </div>
           </div>
-          <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
-            Total: <span className="font-semibold">{brl(total)}</span>
+          <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm flex items-center justify-between">
+            <span>Total: <span className="font-semibold">{brl(computed.total)}</span></span>
+            <span className="text-muted-foreground">Litros estimados: <span className="font-semibold text-foreground">{computed.liters.toFixed(3)}</span></span>
           </div>
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button type="submit" disabled={loading}>{loading ? "Salvando..." : "Salvar"}</Button>
