@@ -78,7 +78,24 @@ const baseQuery = queryOptions({
   },
 });
 
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+interface Supply { id: string; company_id: string; supply_date: string; amount: number }
+
+const suppliesQuery = (date: string) => queryOptions({
+  queryKey: ["caixa-supplies", date],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("daily_cash_supplies" as never)
+      .select("id, company_id, supply_date, amount")
+      .eq("supply_date", date);
+    if (error) throw error;
+    return (data ?? []) as unknown as Supply[];
+  },
+});
+
 const txQuery = (companyId: string | "all") =>
+
   queryOptions({
     queryKey: ["caixa-tx", companyId],
     queryFn: async () => {
