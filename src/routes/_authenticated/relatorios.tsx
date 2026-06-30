@@ -466,7 +466,8 @@ function RelAbastecimentos({ start, end, companyId }: { start: string; end: stri
       return data ?? [];
     },
   });
-  const { data } = useSuspenseQuery({
+  const [vehicleFilter, setVehicleFilter] = useState<string>("all");
+  const { data: raw } = useSuspenseQuery({
     queryKey: ["rel-fuel", start, end, companyId],
     queryFn: async () => {
       let q = supabase
@@ -480,6 +481,10 @@ function RelAbastecimentos({ start, end, companyId }: { start: string; end: stri
       return data ?? [];
     },
   });
+  const data = useMemo(
+    () => vehicleFilter === "all" ? raw : raw.filter((r) => r.vehicle_id === vehicleFilter),
+    [raw, vehicleFilter],
+  );
   const companies = useSuspenseQuery(companiesQuery).data;
   const cmap = useMemo(() => Object.fromEntries(companies.map((c) => [c.id, c.name])), [companies]);
   const vmap = useMemo(() => Object.fromEntries(vehiclesQ.data.map((v) => [v.id, `${v.plate}${v.model ? " - " + v.model : ""}`])), [vehiclesQ.data]);
@@ -491,11 +496,26 @@ function RelAbastecimentos({ start, end, companyId }: { start: string; end: stri
 
   return (
     <div className="space-y-4">
+      <Card className="p-3 no-print">
+        <div className="flex flex-wrap items-center gap-3">
+          <Label className="text-xs">Veículo</Label>
+          <Select value={vehicleFilter} onValueChange={setVehicleFilter}>
+            <SelectTrigger className="w-64"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              {vehiclesQ.data.map((v) => (
+                <SelectItem key={v.id} value={v.id}>{v.plate}{v.model ? ` — ${v.model}` : ""}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </Card>
       <div className="grid gap-3 sm:grid-cols-3">
         <Kpi label="Total gasto" value={brl(totalAmount)} />
         <Kpi label="Litros" value={totalLiters.toFixed(2) + " L"} />
         <Kpi label="Preço médio / L" value={brl(avg)} />
       </div>
+
       <Card className="p-0 overflow-hidden">
         <Table>
           <TableHeader>
