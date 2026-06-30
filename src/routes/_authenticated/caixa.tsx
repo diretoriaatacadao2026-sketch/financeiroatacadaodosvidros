@@ -118,10 +118,13 @@ function CaixaPage() {
   const canWrite = hasRole(["admin", "financeiro", "gestor"]);
   const canDelete = hasRole(["admin", "financeiro"]);
   const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [supplyDate, setSupplyDate] = useState<string>(todayISO());
 
   const { data: base } = useSuspenseQuery(baseQuery);
   const { data: tx } = useSuspenseQuery(txQuery(companyFilter));
+  const { data: supplies } = useSuspenseQuery(suppliesQuery(supplyDate));
   const qc = useQueryClient();
+
 
   const totals = useMemo(() => {
     const entradas = tx.filter((t) => t.tx_type === "entrada").reduce((s, t) => s + Number(t.amount), 0);
