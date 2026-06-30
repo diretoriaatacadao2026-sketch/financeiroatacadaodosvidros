@@ -208,6 +208,37 @@ function CaixaPage() {
         </div>
       </Card>
 
+      <Card className="p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-semibold">Suprimento de Caixa Diário</h3>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="supply_date" className="text-xs text-muted-foreground">Data</Label>
+            <Input
+              id="supply_date" type="date" value={supplyDate}
+              onChange={(e) => setSupplyDate(e.target.value)}
+              className="h-8 w-auto"
+            />
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {(companyFilter === "all" ? base.companies : base.companies.filter(c => c.id === companyFilter)).map((c) => {
+            const supply = supplies.find((s) => s.company_id === c.id);
+            return (
+              <SupplyCard
+                key={c.id}
+                company={c}
+                supply={supply}
+                date={supplyDate}
+                canWrite={canWrite}
+                onSaved={() => qc.invalidateQueries({ queryKey: ["caixa-supplies"] })}
+              />
+            );
+          })}
+        </div>
+      </Card>
+
+
+
       <Card className="overflow-hidden">
         <div className="border-b p-4">
           <h3 className="font-semibold">Lançamentos</h3>
