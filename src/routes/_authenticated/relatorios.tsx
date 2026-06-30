@@ -331,7 +331,8 @@ function RelFeedback({ start, end, companyId }: { start: string; end: string; co
       return data ?? [];
     },
   });
-  const { data } = useSuspenseQuery({
+  const [installerFilter, setInstallerFilter] = useState<string>("all");
+  const { data: raw } = useSuspenseQuery({
     queryKey: ["rel-feedback", start, end, companyId],
     queryFn: async () => {
       let q = supabase
@@ -345,6 +346,10 @@ function RelFeedback({ start, end, companyId }: { start: string; end: string; co
       return data ?? [];
     },
   });
+  const data = useMemo(
+    () => installerFilter === "all" ? raw : raw.filter((f) => f.installer_id === installerFilter),
+    [raw, installerFilter],
+  );
   const companies = useSuspenseQuery(companiesQuery).data;
   const cmap = useMemo(() => Object.fromEntries(companies.map((c) => [c.id, c.name])), [companies]);
   const imap = useMemo(() => Object.fromEntries(installersQ.data.map((i) => [i.id, i.name])), [installersQ.data]);
@@ -365,11 +370,25 @@ function RelFeedback({ start, end, companyId }: { start: string; end: string; co
 
   return (
     <div className="space-y-4">
+      <Card className="p-3 no-print">
+        <div className="flex flex-wrap items-center gap-3">
+          <Label className="text-xs">Montador</Label>
+          <Select value={installerFilter} onValueChange={setInstallerFilter}>
+            <SelectTrigger className="w-64"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              {installersQ.data.map((i) => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </Card>
+
       <div className="grid gap-3 sm:grid-cols-3">
         <Kpi label="Total de avaliações" value={String(data.length)} />
         <Kpi label="Média geral" value={overall.toFixed(2) + " ⭐"} />
         <Kpi label="Montadores avaliados" value={String(ranking.length)} />
       </div>
+
 
       <Card className="p-0 overflow-hidden">
         <div className="px-4 py-3 border-b font-medium text-sm">Ranking</div>
