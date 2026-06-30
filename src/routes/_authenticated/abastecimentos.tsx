@@ -638,16 +638,17 @@ function NewRefuelDialog({
   const [fuelType, setFuelType] = useState("diesel");
   const [paymentMethod, setPaymentMethod] = useState("pix");
   const [creditId, setCreditId] = useState("none");
-  const [liters, setLiters] = useState("");
+  const [paidAmount, setPaidAmount] = useState("");
   const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const total = useMemo(() => {
-    const l = parseFloat(liters.replace(",", "."));
+  const computed = useMemo(() => {
+    const amt = parseFloat(paidAmount.replace(",", "."));
     const p = parseFloat(price.replace(",", "."));
-    if (!isFinite(l) || !isFinite(p)) return 0;
-    return l * p;
-  }, [liters, price]);
+    if (!isFinite(amt) || !isFinite(p) || p <= 0) return { liters: 0, total: isFinite(amt) ? amt : 0 };
+    return { liters: amt / p, total: amt };
+  }, [paidAmount, price]);
+
 
   const companyVehicles = companyId ? vehicles.filter(v => v.company_id === companyId) : [];
   const companyProviders = companyId ? providers.filter(p => p.company_id === companyId) : [];
@@ -660,15 +661,16 @@ function NewRefuelDialog({
     e.preventDefault();
     if (!companyId) return toast.error("Selecione a empresa");
     if (!vehicleId) return toast.error("Selecione o veículo");
-    const l = parseFloat(liters.replace(",", "."));
+    const amt = parseFloat(paidAmount.replace(",", "."));
     const p = parseFloat(price.replace(",", "."));
-    if (!isFinite(l) || l <= 0) return toast.error("Litros inválido");
-    if (!isFinite(p) || p < 0) return toast.error("Preço inválido");
+    if (!isFinite(amt) || amt <= 0) return toast.error("Valor pago inválido");
+    if (!isFinite(p) || p <= 0) return toast.error("Preço/L inválido");
+    const l = amt / p;
     if (paymentMethod === "credito_antecipado") {
       if (creditId === "none") return toast.error("Selecione o crédito antecipado a consumir");
       const c = credits.find(x => x.credit.id === creditId);
       if (!c) return toast.error("Crédito não encontrado");
-      if (l * p > c.balance + 0.001) return toast.error(`Saldo insuficiente. Disponível: ${brl(c.balance)}`);
+      if (amt > c.balance + 0.001) return toast.error(`Saldo insuficiente. Disponível: ${brl(c.balance)}`);
     }
     const fd = new FormData(e.currentTarget);
     setLoading(true);
@@ -678,9 +680,9 @@ function NewRefuelDialog({
       provider_id: providerId === "none" ? null : providerId,
       refuel_date: String(fd.get("refuel_date")),
       fuel_type: fuelType,
-      liters: l,
+      liters: Number(l.toFixed(3)),
       price_per_liter: p,
-      total_amount: Number((l * p).toFixed(2)),
+      total_amount: Number(amt.toFixed(2)),
       odometer: fd.get("odometer") ? parseInt(String(fd.get("odometer")), 10) : null,
       requisition_number: String(fd.get("requisition_number") || "") || null,
       payment_method: paymentMethod,
@@ -694,8 +696,10 @@ function NewRefuelDialog({
     qc.invalidateQueries({ queryKey: ["abastecimentos"] });
     setOpen(false);
     setCompanyId(""); setVehicleId(""); setProviderId("none");
-    setLiters(""); setPrice(""); setPaymentMethod("pix"); setCreditId("none");
+    setPaidAmount(""); setPrice(""); setPaymentMethod("pix"); setCreditId("none");
   };
+
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -754,13 +758,14 @@ function NewRefuelDialog({
               <Input id="refuel_date" name="refuel_date" type="date" required defaultValue={today()} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="liters">Litros</Label>
-              <Input id="liters" inputMode="decimal" value={liters} onChange={(e) => setLiters(e.target.value)} required placeholder="0,00" />
+              <Label htmlFor="paid_amount">Valor pago (R$)</Label>
+              <Input id="paid_amount" inputMode="decimal" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} required placeholder="0,00" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="price">Preço/L</Label>
               <Input id="price" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} required placeholder="0,000" />
             </div>
+
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -806,9 +811,11 @@ function NewRefuelDialog({
               <Input id="notes" name="notes" maxLength={500} />
             </div>
           </div>
-          <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
-            Total: <span className="font-semibold">{brl(total)}</span>
+          <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm flex items-center justify-between">
+            <span>Total: <span className="font-semibold">{brl(computed.total)}</span></span>
+            <span className="text-muted-foreground">Litros estimados: <span className="font-semibold text-foreground">{computed.liters.toFixed(3)}</span></span>
           </div>
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button type="submit" disabled={loading}>{loading ? "Salvando..." : "Salvar"}</Button>

@@ -78,7 +78,24 @@ const baseQuery = queryOptions({
   },
 });
 
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+interface Supply { id: string; company_id: string; supply_date: string; amount: number }
+
+const suppliesQuery = (date: string) => queryOptions({
+  queryKey: ["caixa-supplies", date],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("daily_cash_supplies" as never)
+      .select("id, company_id, supply_date, amount")
+      .eq("supply_date", date);
+    if (error) throw error;
+    return (data ?? []) as unknown as Supply[];
+  },
+});
+
 const txQuery = (companyId: string | "all") =>
+
   queryOptions({
     queryKey: ["caixa-tx", companyId],
     queryFn: async () => {
@@ -101,10 +118,13 @@ function CaixaPage() {
   const canWrite = hasRole(["admin", "financeiro", "gestor"]);
   const canDelete = hasRole(["admin", "financeiro"]);
   const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [supplyDate, setSupplyDate] = useState<string>(todayISO());
 
   const { data: base } = useSuspenseQuery(baseQuery);
   const { data: tx } = useSuspenseQuery(txQuery(companyFilter));
+  const { data: supplies } = useSuspenseQuery(suppliesQuery(supplyDate));
   const qc = useQueryClient();
+
 
   const totals = useMemo(() => {
     const entradas = tx.filter((t) => t.tx_type === "entrada").reduce((s, t) => s + Number(t.amount), 0);
@@ -187,6 +207,37 @@ function CaixaPage() {
           })}
         </div>
       </Card>
+
+      <Card className="p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-semibold">Suprimento de Caixa Diário</h3>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="supply_date" className="text-xs text-muted-foreground">Data</Label>
+            <Input
+              id="supply_date" type="date" value={supplyDate}
+              onChange={(e) => setSupplyDate(e.target.value)}
+              className="h-8 w-auto"
+            />
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {(companyFilter === "all" ? base.companies : base.companies.filter(c => c.id === companyFilter)).map((c) => {
+            const supply = supplies.find((s) => s.company_id === c.id);
+            return (
+              <SupplyCard
+                key={c.id}
+                company={c}
+                supply={supply}
+                date={supplyDate}
+                canWrite={canWrite}
+                onSaved={() => qc.invalidateQueries({ queryKey: ["caixa-supplies"] })}
+              />
+            );
+          })}
+        </div>
+      </Card>
+
+
 
       <Card className="overflow-hidden">
         <div className="border-b p-4">
@@ -390,3 +441,78 @@ function NewTransactionDialog({ companies, accounts }: { companies: Company[]; a
     </Dialog>
   );
 }
+
+function SupplyCard({
+  company, supply, date, canWrite, onSaved,
+}: {
+  company: Company;
+  supply: Supply | undefined;
+  date: string;
+  canWrite: boolean;
+  onSaved: () => void;
+}) {
+  const { user } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState<string>(supply ? String(supply.amount) : "");
+  const [saving, setSaving] = useState(false);
+
+  // Reset local input when supply/date changes
+  const supplyKey = `${supply?.id ?? "none"}-${date}`;
+  const [lastKey, setLastKey] = useState(supplyKey);
+  if (lastKey !== supplyKey) {
+    setLastKey(supplyKey);
+    setVal(supply ? String(supply.amount) : "");
+    setEditing(false);
+  }
+
+  const save = async () => {
+    const amount = Number(val.replace(",", "."));
+    if (!isFinite(amount) || amount < 0) return toast.error("Valor inválido");
+    setSaving(true);
+    const payload = {
+      company_id: company.id,
+      supply_date: date,
+      amount,
+      created_by: user?.id,
+    };
+    const { error } = await (supabase.from("daily_cash_supplies" as never) as never as {
+      upsert: (v: unknown, o: { onConflict: string }) => Promise<{ error: Error | null }>;
+    }).upsert(payload, { onConflict: "company_id,supply_date" });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Suprimento salvo");
+    setEditing(false);
+    onSaved();
+  };
+
+  return (
+    <div className="rounded-lg border bg-secondary/40 p-3">
+      <div className="text-xs text-muted-foreground">{company.name}</div>
+      {editing ? (
+        <div className="mt-2 flex items-center gap-2">
+          <Input
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            inputMode="decimal"
+            placeholder="0,00"
+            className="h-8"
+          />
+          <Button size="sm" onClick={save} disabled={saving}>{saving ? "..." : "OK"}</Button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">Suprimento</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">{brl(Number(supply?.amount ?? 0))}</span>
+            {canWrite && (
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditing(true)}>
+                Editar
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
