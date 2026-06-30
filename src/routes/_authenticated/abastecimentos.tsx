@@ -758,13 +758,14 @@ function NewRefuelDialog({
               <Input id="refuel_date" name="refuel_date" type="date" required defaultValue={today()} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="liters">Litros</Label>
-              <Input id="liters" inputMode="decimal" value={liters} onChange={(e) => setLiters(e.target.value)} required placeholder="0,00" />
+              <Label htmlFor="paid_amount">Valor pago (R$)</Label>
+              <Input id="paid_amount" inputMode="decimal" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} required placeholder="0,00" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="price">Preço/L</Label>
               <Input id="price" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} required placeholder="0,000" />
             </div>
+
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
