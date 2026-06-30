@@ -638,16 +638,17 @@ function NewRefuelDialog({
   const [fuelType, setFuelType] = useState("diesel");
   const [paymentMethod, setPaymentMethod] = useState("pix");
   const [creditId, setCreditId] = useState("none");
-  const [liters, setLiters] = useState("");
+  const [paidAmount, setPaidAmount] = useState("");
   const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const total = useMemo(() => {
-    const l = parseFloat(liters.replace(",", "."));
+  const computed = useMemo(() => {
+    const amt = parseFloat(paidAmount.replace(",", "."));
     const p = parseFloat(price.replace(",", "."));
-    if (!isFinite(l) || !isFinite(p)) return 0;
-    return l * p;
-  }, [liters, price]);
+    if (!isFinite(amt) || !isFinite(p) || p <= 0) return { liters: 0, total: isFinite(amt) ? amt : 0 };
+    return { liters: amt / p, total: amt };
+  }, [paidAmount, price]);
+
 
   const companyVehicles = companyId ? vehicles.filter(v => v.company_id === companyId) : [];
   const companyProviders = companyId ? providers.filter(p => p.company_id === companyId) : [];
