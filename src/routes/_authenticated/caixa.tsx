@@ -36,6 +36,7 @@ import { brl, dateBR, PAYMENT_METHODS } from "@/lib/format";
 import { useUserNames } from "@/lib/use-user-names";
 import { Plus, ArrowUpRight, ArrowDownRight, Trash2, Lock, Unlock } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/caixa")({
   ssr: false,
