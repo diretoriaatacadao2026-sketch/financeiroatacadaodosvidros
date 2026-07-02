@@ -1,27 +1,24 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
-import { Suspense } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  LineChart,
-  Line,
-  Legend,
-} from "recharts";
-import { ArrowDownRight, ArrowUpRight, Wallet, Building2, TrendingUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, Unlock, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   ssr: false,
   head: () => ({ meta: [{ title: "Dashboard — Glass ERP" }] }),
-  component: Dashboard,
+  component: DashboardWrapper,
 });
 
 interface TxRow {
@@ -30,207 +27,274 @@ interface TxRow {
   amount: number;
   tx_type: "entrada" | "saida";
   company_id: string;
-  account_id: string;
 }
 interface Company { id: string; name: string }
+interface Closing { company_id: string; closing_date: string }
 
-const dataQuery = queryOptions({
-  queryKey: ["dashboard-data"],
-  queryFn: async () => {
-    const since = new Date();
-    since.setDate(since.getDate() - 30);
-    const [{ data: tx }, { data: companies }] = await Promise.all([
-      supabase
+const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+const monthDataQuery = (month: string, companyFilter: string) =>
+  queryOptions({
+    queryKey: ["dashboard-month", month, companyFilter],
+    queryFn: async () => {
+      const [y, m] = month.split("-").map(Number);
+      const first = new Date(y, m - 1, 1);
+      const last = new Date(y, m, 0);
+      const startISO = first.toISOString().slice(0, 10);
+      const endISO = last.toISOString().slice(0, 10);
+
+      let txQ = supabase
         .from("cash_transactions")
-        .select("id, tx_date, amount, tx_type, company_id, account_id")
-        .gte("tx_date", since.toISOString().slice(0, 10))
-        .order("tx_date", { ascending: true }),
-      supabase.from("companies").select("id, name").order("name"),
-    ]);
-    return {
-      tx: (tx ?? []) as TxRow[],
-      companies: (companies ?? []) as Company[],
-    };
-  },
-});
+        .select("id, tx_date, amount, tx_type, company_id")
+        .gte("tx_date", startISO)
+        .lte("tx_date", endISO);
+      if (companyFilter !== "all") txQ = txQ.eq("company_id", companyFilter);
 
-function Dashboard() {
+      let clQ = supabase
+        .from("cash_closings" as never)
+        .select("company_id, closing_date")
+        .gte("closing_date", startISO)
+        .lte("closing_date", endISO);
+      if (companyFilter !== "all") clQ = clQ.eq("company_id", companyFilter);
+
+      const [{ data: tx }, { data: closings }, { data: companies }] = await Promise.all([
+        txQ,
+        clQ,
+        supabase.from("companies").select("id, name").order("name"),
+      ]);
+      return {
+        tx: (tx ?? []) as TxRow[],
+        closings: ((closings ?? []) as unknown) as Closing[],
+        companies: (companies ?? []) as Company[],
+        month,
+        first,
+        last,
+      };
+    },
+  });
+
+function DashboardWrapper() {
   return (
-    <Suspense fallback={<div className="text-muted-foreground">Carregando indicadores...</div>}>
-      <Inner />
+    <Suspense fallback={<div className="text-muted-foreground">Carregando calendário...</div>}>
+      <Dashboard />
     </Suspense>
   );
 }
 
-function Inner() {
-  const { data } = useSuspenseQuery(dataQuery);
-  const today = new Date().toISOString().slice(0, 10);
-  const todayTx = data.tx.filter((t) => t.tx_date === today);
-  const entradasHoje = todayTx.filter((t) => t.tx_type === "entrada").reduce((s, t) => s + Number(t.amount), 0);
-  const saidasHoje = todayTx.filter((t) => t.tx_type === "saida").reduce((s, t) => s + Number(t.amount), 0);
-  const saldoConsolidado = data.tx.reduce(
-    (s, t) => s + (t.tx_type === "entrada" ? 1 : -1) * Number(t.amount),
-    0,
-  );
-
-  const byCompany = data.companies.map((c) => {
-    const txC = data.tx.filter((t) => t.company_id === c.id);
-    const saldo = txC.reduce(
-      (s, t) => s + (t.tx_type === "entrada" ? 1 : -1) * Number(t.amount),
-      0,
-    );
-    return { name: c.name.replace("Vidraçaria ", "").replace("Atacadão ", "Atc. ").replace("Mercadão ", "Mrc. "), saldo };
+function Dashboard() {
+  const [cursor, setCursor] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
   });
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const month = monthKey(cursor);
+  const { data } = useSuspenseQuery(monthDataQuery(month, companyFilter));
+  const navigate = useNavigate();
 
-  const flowByDate = (() => {
-    const map = new Map<string, { date: string; entradas: number; saidas: number }>();
+  const totalCompanies = companyFilter === "all"
+    ? data.companies.length || 1
+    : 1;
+
+  // Aggregate by date
+  const byDate = useMemo(() => {
+    const m = new Map<string, { entradas: number; saidas: number; companies: Set<string> }>();
     data.tx.forEach((t) => {
-      const k = t.tx_date;
-      const row = map.get(k) ?? { date: k, entradas: 0, saidas: 0 };
+      const key = t.tx_date;
+      const row = m.get(key) ?? { entradas: 0, saidas: 0, companies: new Set<string>() };
       if (t.tx_type === "entrada") row.entradas += Number(t.amount);
       else row.saidas += Number(t.amount);
-      map.set(k, row);
+      row.companies.add(t.company_id);
+      m.set(key, row);
     });
-    return Array.from(map.values())
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .map((r) => ({ ...r, date: r.date.slice(5).replace("-", "/") }));
-  })();
+    return m;
+  }, [data.tx]);
+
+  const closingsByDate = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    data.closings.forEach((c) => {
+      const set = m.get(c.closing_date) ?? new Set<string>();
+      set.add(c.company_id);
+      m.set(c.closing_date, set);
+    });
+    return m;
+  }, [data.closings]);
+
+  const monthTotals = useMemo(() => {
+    let e = 0, s = 0;
+    data.tx.forEach((t) => {
+      if (t.tx_type === "entrada") e += Number(t.amount);
+      else s += Number(t.amount);
+    });
+    return { entradas: e, saidas: s, saldo: e - s };
+  }, [data.tx]);
+
+  // Build calendar grid (Sun..Sat)
+  const first = data.first;
+  const last = data.last;
+  const startWeekday = first.getDay();
+  const daysInMonth = last.getDate();
+  const cells: Array<{ date: Date | null; iso: string | null }> = [];
+  for (let i = 0; i < startWeekday; i++) cells.push({ date: null, iso: null });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(first.getFullYear(), first.getMonth(), d);
+    cells.push({ date: dt, iso: dt.toISOString().slice(0, 10) });
+  }
+  while (cells.length % 7 !== 0) cells.push({ date: null, iso: null });
+
+  const monthLabel = cursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const todayISO = new Date().toISOString().slice(0, 10);
+
+  const prevMonth = () => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
+  const nextMonth = () => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1));
+
+  // Max abs value for shade intensity
+  const maxAbs = Math.max(1, ...Array.from(byDate.values()).map((r) => Math.abs(r.entradas - r.saidas)));
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Visão consolidada das 4 empresas — últimos 30 dias.</p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi
-          label="Saldo consolidado"
-          value={brl(saldoConsolidado)}
-          icon={<Wallet className="h-4 w-4" />}
-          accent="primary"
-        />
-        <Kpi
-          label="Entradas (hoje)"
-          value={brl(entradasHoje)}
-          icon={<ArrowUpRight className="h-4 w-4" />}
-          accent="success"
-        />
-        <Kpi
-          label="Saídas (hoje)"
-          value={brl(saidasHoje)}
-          icon={<ArrowDownRight className="h-4 w-4" />}
-          accent="destructive"
-        />
-        <Kpi
-          label="Empresas ativas"
-          value={String(data.companies.length)}
-          icon={<Building2 className="h-4 w-4" />}
-          accent="primary"
-        />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="p-5 lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold">Fluxo de caixa diário</h3>
-              <p className="text-xs text-muted-foreground">Entradas vs saídas — 30 dias</p>
-            </div>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="h-72">
-            {flowByDate.length === 0 ? (
-              <Empty />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={flowByDate}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `R$${v}`} />
-                  <Tooltip formatter={(v: number) => brl(v)} />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="entradas"
-                    stroke="var(--chart-2)"
-                    strokeWidth={2}
-                    dot={false}
-                    name="Entradas"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="saidas"
-                    stroke="var(--chart-4)"
-                    strokeWidth={2}
-                    dot={false}
-                    name="Saídas"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </Card>
-
-        <Card className="p-5">
-          <div className="mb-4">
-            <h3 className="font-semibold">Saldo por empresa</h3>
-            <p className="text-xs text-muted-foreground">Acumulado dos 30 dias</p>
-          </div>
-          <div className="h-72">
-            {byCompany.every((b) => b.saldo === 0) ? (
-              <Empty />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={byCompany} layout="vertical" margin={{ left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `R$${v}`} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
-                  <Tooltip formatter={(v: number) => brl(v)} />
-                  <Bar dataKey="saldo" fill="var(--chart-1)" radius={[0, 6, 6, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-function Empty() {
-  return (
-    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-      Sem dados suficientes ainda. Lance movimentações no Caixa.
-    </div>
-  );
-}
-
-function Kpi({
-  label,
-  value,
-  icon,
-  accent,
-}: {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-  accent: "primary" | "success" | "destructive";
-}) {
-  const colorMap = {
-    primary: "bg-primary/10 text-primary",
-    success: "bg-[color:var(--success)]/15 text-[color:var(--success)]",
-    destructive: "bg-destructive/10 text-destructive",
-  };
-  return (
-    <Card className="p-5">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        <div className={`grid h-8 w-8 place-items-center rounded-md ${colorMap[accent]}`}>
-          {icon}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Suas vendas</h1>
+          <p className="text-sm text-muted-foreground">Saldo diário — clique em um dia para ver o extrato</p>
         </div>
+        <Select value={companyFilter} onValueChange={setCompanyFilter}>
+          <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as empresas</SelectItem>
+            {data.companies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
-      <div className="mt-3 text-2xl font-bold tracking-tight">{value}</div>
-    </Card>
+
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground uppercase">{monthLabel}</span>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="mt-2 text-xl font-bold">{brl(monthTotals.saldo)}</div>
+          <div className="text-xs text-muted-foreground">Saldo do mês</div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground uppercase">Entradas</span>
+            <ArrowUpRight className="h-4 w-4 text-[color:var(--success)]" />
+          </div>
+          <div className="mt-2 text-xl font-bold text-[color:var(--success)]">{brl(monthTotals.entradas)}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground uppercase">Saídas</span>
+            <ArrowDownRight className="h-4 w-4 text-destructive" />
+          </div>
+          <div className="mt-2 text-xl font-bold text-destructive">{brl(monthTotals.saidas)}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground uppercase">Empresas</span>
+          </div>
+          <div className="mt-2 text-xl font-bold">{data.companies.length}</div>
+          <div className="text-xs text-muted-foreground">
+            {companyFilter === "all" ? "Consolidado" : data.companies.find(c => c.id === companyFilter)?.name}
+          </div>
+        </Card>
+      </div>
+
+      <Card className="p-4 md:p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={prevMonth}><ChevronLeft className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
+          </div>
+          <div className="text-lg font-semibold capitalize">{monthLabel}</div>
+          <div className="w-16" />
+        </div>
+
+        <div className="grid grid-cols-7 gap-1.5 text-center text-[10px] font-medium uppercase text-muted-foreground">
+          {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
+            <div key={d} className="py-1">{d}</div>
+          ))}
+        </div>
+
+        <div className="mt-1 grid grid-cols-7 gap-1.5">
+          {cells.map((cell, i) => {
+            if (!cell.iso || !cell.date) {
+              return <div key={i} className="aspect-square rounded-md border border-dashed border-border/40" />;
+            }
+            const rec = byDate.get(cell.iso);
+            const saldo = rec ? rec.entradas - rec.saidas : 0;
+            const isFuture = cell.iso > todayISO;
+            const closedCount = closingsByDate.get(cell.iso)?.size ?? 0;
+            const dayCompanies = companyFilter === "all" ? totalCompanies : 1;
+            const allClosed = closedCount >= dayCompanies && closedCount > 0;
+            const someClosed = closedCount > 0 && !allClosed;
+
+            const intensity = Math.min(1, Math.abs(saldo) / maxAbs);
+            const bgStyle = saldo === 0
+              ? undefined
+              : saldo > 0
+                ? { backgroundColor: `color-mix(in oklab, hsl(140 70% 45%) ${20 + Math.round(intensity * 55)}%, transparent)` }
+                : { backgroundColor: `color-mix(in oklab, hsl(0 75% 55%) ${20 + Math.round(intensity * 55)}%, transparent)` };
+
+            return (
+              <Link
+                key={i}
+                to="/extrato/$date"
+                params={{ date: cell.iso }}
+                search={{ pm: "all" as const }}
+                className={cn(
+                  "group relative flex aspect-square flex-col justify-between rounded-md border p-1.5 text-left transition-all hover:scale-[1.02] hover:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary",
+                  cell.iso === todayISO && "ring-2 ring-primary",
+                  isFuture && "opacity-50",
+                )}
+                style={bgStyle}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold">{cell.date.getDate()}</span>
+                  {allClosed && (
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-background/70 px-1 py-0.5 text-[9px] font-medium text-foreground shadow-sm">
+                      <Lock className="h-2.5 w-2.5" /> Fechado
+                    </span>
+                  )}
+                  {someClosed && (
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-background/70 px-1 py-0.5 text-[9px] font-medium text-amber-500 shadow-sm">
+                      <Lock className="h-2.5 w-2.5" /> Parcial
+                    </span>
+                  )}
+                  {!allClosed && !someClosed && rec && (
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-background/70 px-1 py-0.5 text-[9px] font-medium text-muted-foreground shadow-sm">
+                      <Unlock className="h-2.5 w-2.5" /> Aberto
+                    </span>
+                  )}
+                </div>
+                <div className="text-right">
+                  {rec ? (
+                    <div className={cn(
+                      "text-xs font-bold leading-tight tabular-nums",
+                      saldo >= 0 ? "text-foreground" : "text-destructive-foreground",
+                    )}>
+                      {saldo >= 0 ? "" : "-"}R${Math.abs(saldo).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-muted-foreground/60">—</div>
+                  )}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded" style={{ background: "hsl(140 70% 45% / 0.6)" }} /> Saldo positivo</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded" style={{ background: "hsl(0 75% 55% / 0.6)" }} /> Saldo negativo</span>
+          <span className="inline-flex items-center gap-1"><Lock className="h-3 w-3" /> Caixa fechado</span>
+          <span className="inline-flex items-center gap-1"><Unlock className="h-3 w-3" /> Caixa aberto</span>
+        </div>
+      </Card>
+
+      <p className="text-xs text-muted-foreground" onClick={() => navigate({ to: "/caixa" })}>
+        Dica: use <span className="font-medium text-foreground">Fechamento de Caixa</span> para marcar um dia como fechado.
+      </p>
+    </div>
   );
 }
