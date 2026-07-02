@@ -18,6 +18,7 @@ import { Route as AuthenticatedMontadoresRouteImport } from './routes/_authentic
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCaixaRouteImport } from './routes/_authenticated/caixa'
 import { Route as AuthenticatedAbastecimentosRouteImport } from './routes/_authenticated/abastecimentos'
+import { Route as AuthenticatedExtratoDateRouteImport } from './routes/_authenticated/extrato.$date'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -64,6 +65,12 @@ const AuthenticatedAbastecimentosRoute =
     path: '/abastecimentos',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedExtratoDateRoute =
+  AuthenticatedExtratoDateRouteImport.update({
+    id: '/extrato/$date',
+    path: '/extrato/$date',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/montadores': typeof AuthenticatedMontadoresRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/extrato/$date': typeof AuthenticatedExtratoDateRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -84,6 +92,7 @@ export interface FileRoutesByTo {
   '/montadores': typeof AuthenticatedMontadoresRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/extrato/$date': typeof AuthenticatedExtratoDateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -96,6 +105,7 @@ export interface FileRoutesById {
   '/_authenticated/montadores': typeof AuthenticatedMontadoresRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
+  '/_authenticated/extrato/$date': typeof AuthenticatedExtratoDateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/montadores'
     | '/relatorios'
     | '/usuarios'
+    | '/extrato/$date'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/montadores'
     | '/relatorios'
     | '/usuarios'
+    | '/extrato/$date'
   id:
     | '__root__'
     | '/'
@@ -129,6 +141,7 @@ export interface FileRouteTypes {
     | '/_authenticated/montadores'
     | '/_authenticated/relatorios'
     | '/_authenticated/usuarios'
+    | '/_authenticated/extrato/$date'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -202,6 +215,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAbastecimentosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/extrato/$date': {
+      id: '/_authenticated/extrato/$date'
+      path: '/extrato/$date'
+      fullPath: '/extrato/$date'
+      preLoaderRoute: typeof AuthenticatedExtratoDateRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -212,6 +232,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMontadoresRoute: typeof AuthenticatedMontadoresRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
+  AuthenticatedExtratoDateRoute: typeof AuthenticatedExtratoDateRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -221,6 +242,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMontadoresRoute: AuthenticatedMontadoresRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
+  AuthenticatedExtratoDateRoute: AuthenticatedExtratoDateRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
