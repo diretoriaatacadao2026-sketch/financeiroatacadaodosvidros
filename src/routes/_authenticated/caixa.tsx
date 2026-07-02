@@ -34,7 +34,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { brl, dateBR, PAYMENT_METHODS } from "@/lib/format";
 import { useUserNames } from "@/lib/use-user-names";
-import { Plus, ArrowUpRight, ArrowDownRight, Trash2 } from "lucide-react";
+import { Plus, ArrowUpRight, ArrowDownRight, Trash2, Lock, Unlock } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/caixa")({
@@ -94,6 +94,19 @@ const suppliesQuery = (date: string) => queryOptions({
   },
 });
 
+interface Closing { id: string; company_id: string; closing_date: string; notes: string | null }
+const closingsQuery = (date: string) => queryOptions({
+  queryKey: ["caixa-closings", date],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("cash_closings" as never)
+      .select("id, company_id, closing_date, notes")
+      .eq("closing_date", date);
+    if (error) throw error;
+    return (data ?? []) as unknown as Closing[];
+  },
+});
+
 const txQuery = (companyId: string | "all") =>
 
   queryOptions({
@@ -123,6 +136,7 @@ function CaixaPage() {
   const { data: base } = useSuspenseQuery(baseQuery);
   const { data: tx } = useSuspenseQuery(txQuery(companyFilter));
   const { data: supplies } = useSuspenseQuery(suppliesQuery(supplyDate));
+  const { data: closings } = useSuspenseQuery(closingsQuery(supplyDate));
   const qc = useQueryClient();
 
 
