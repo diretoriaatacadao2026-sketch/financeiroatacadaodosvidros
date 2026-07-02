@@ -251,6 +251,60 @@ function CaixaPage() {
         </div>
       </Card>
 
+      <Card className="p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold">Status do Caixa por Empresa</h3>
+            <p className="text-xs text-muted-foreground">Marque como <strong>Fechado</strong> quando a conferência do dia estiver concluída. O status aparece no calendário do Dashboard.</p>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {(companyFilter === "all" ? base.companies : base.companies.filter(c => c.id === companyFilter)).map((c) => {
+            const closing = closings.find((cl) => cl.company_id === c.id);
+            const isClosed = !!closing;
+            return (
+              <div key={c.id} className="rounded-lg border bg-secondary/40 p-3">
+                <div className="text-xs text-muted-foreground truncate">{c.name}</div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className={cn(
+                    "inline-flex items-center gap-1 text-sm font-medium",
+                    isClosed ? "text-foreground" : "text-muted-foreground",
+                  )}>
+                    {isClosed ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+                    {isClosed ? "Fechado" : "Aberto"}
+                  </span>
+                  {canWrite && (
+                    <Button
+                      size="sm"
+                      variant={isClosed ? "outline" : "default"}
+                      onClick={async () => {
+                        if (isClosed) {
+                          const { error } = await supabase.from("cash_closings" as never).delete().eq("id", closing.id);
+                          if (error) return toast.error(error.message);
+                          toast.success("Caixa reaberto");
+                        } else {
+                          const { error } = await supabase.from("cash_closings" as never).insert({
+                            company_id: c.id, closing_date: supplyDate,
+                          } as never);
+                          if (error) return toast.error(error.message);
+                          toast.success("Caixa fechado");
+                        }
+                        qc.invalidateQueries({ queryKey: ["caixa-closings"] });
+                        qc.invalidateQueries({ queryKey: ["dashboard-month"] });
+                      }}
+                    >
+                      {isClosed ? "Reabrir" : "Fechar Caixa"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+
+
 
 
       <Card className="overflow-hidden">
