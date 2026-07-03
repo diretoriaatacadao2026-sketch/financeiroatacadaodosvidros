@@ -81,8 +81,36 @@ function ExtratoPage() {
   const { date } = Route.useParams();
   const { pm } = Route.useSearch();
   const navigate = Route.useNavigate();
+  const qc = useQueryClient();
   const { data } = useSuspenseQuery(dayQuery(date));
   const { display: userName } = useUserNames();
+  const [busy, setBusy] = useState(false);
+
+  const toggleReconciled = async (tx: Tx, next: boolean) => {
+    setBusy(true);
+    const patch = next
+      ? { reconciled: true, reconciled_at: new Date().toISOString(), reconciled_by: (await supabase.auth.getUser()).data.user?.id ?? null }
+      : { reconciled: false, reconciled_at: null, reconciled_by: null };
+    const { error } = await supabase.from("cash_transactions").update(patch).eq("id", tx.id);
+    setBusy(false);
+    if (error) { toast.error("Erro: " + error.message); return; }
+    qc.invalidateQueries({ queryKey: ["extrato-day", date] });
+  };
+
+  const conciliarTodos = async () => {
+    const pending = data.tx.filter((t) => !t.reconciled);
+    if (pending.length === 0) return;
+    if (!confirm(`Marcar ${pending.length} lançamento(s) como conciliado(s)?`)) return;
+    setBusy(true);
+    const uid = (await supabase.auth.getUser()).data.user?.id ?? null;
+    const { error } = await supabase.from("cash_transactions")
+      .update({ reconciled: true, reconciled_at: new Date().toISOString(), reconciled_by: uid })
+      .in("id", pending.map((t) => t.id));
+    setBusy(false);
+    if (error) { toast.error("Erro: " + error.message); return; }
+    toast.success(`${pending.length} lançamento(s) conciliados`);
+    qc.invalidateQueries({ queryKey: ["extrato-day", date] });
+  };
 
   const filtered = useMemo(
     () => pm === "all" ? data.tx : data.tx.filter((t) => t.payment_method === pm),
