@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
-import { Suspense, useMemo } from "react";
+import { useSuspenseQuery, queryOptions, useQueryClient } from "@tanstack/react-query";
+import { Suspense, useMemo, useState } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -15,7 +17,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { brl, dateBR, PAYMENT_METHODS } from "@/lib/format";
 import { useUserNames } from "@/lib/use-user-names";
-import { ArrowLeft, ArrowUpRight, ArrowDownRight, Lock, Unlock } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, ArrowDownRight, Lock, Unlock, CheckCheck, FileText } from "lucide-react";
 
 const searchSchema = z.object({
   pm: fallback(z.string(), "all").default("all"),
