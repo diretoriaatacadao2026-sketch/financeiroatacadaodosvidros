@@ -257,6 +257,7 @@ function ExtratoPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">✓</TableHead>
                 <TableHead className="w-20">Horário</TableHead>
                 <TableHead className="w-16">Nº</TableHead>
                 <TableHead>Empresa</TableHead>
@@ -272,7 +273,7 @@ function ExtratoPage() {
             <TableBody>
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
                     Sem movimentações para este filtro.
                   </TableCell>
                 </TableRow>
@@ -283,7 +284,15 @@ function ExtratoPage() {
                 const pmLabel = PAYMENT_METHODS.find((p) => p.value === t.payment_method)?.label ?? t.payment_method;
                 const time = new Date(t.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
                 return (
-                  <TableRow key={t.id}>
+                  <TableRow key={t.id} className={t.reconciled ? "bg-[color:var(--success)]/5" : undefined}>
+                    <TableCell>
+                      <Checkbox
+                        checked={t.reconciled}
+                        disabled={busy}
+                        onCheckedChange={(v) => toggleReconciled(t, v === true)}
+                        aria-label="Marcar como conciliado"
+                      />
+                    </TableCell>
                     <TableCell className="text-xs tabular-nums">{time}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">#{t.number}</TableCell>
                     <TableCell className="text-sm">{comp?.name}</TableCell>
