@@ -50,6 +50,9 @@ interface Tx {
   company_id: string;
   account_id: string;
   created_by: string | null;
+  reconciled: boolean;
+  reconciled_at: string | null;
+  reconciled_by: string | null;
 }
 
 const dayQuery = (date: string) => queryOptions({
@@ -58,7 +61,7 @@ const dayQuery = (date: string) => queryOptions({
     const [{ data: tx }, { data: companies }, { data: accounts }, { data: closings }] = await Promise.all([
       supabase
         .from("cash_transactions")
-        .select("id, number, tx_date, created_at, client_name, budget_number, description, amount, payment_method, tx_type, company_id, account_id, created_by")
+        .select("id, number, tx_date, created_at, client_name, budget_number, description, amount, payment_method, tx_type, company_id, account_id, created_by, reconciled, reconciled_at, reconciled_by")
         .eq("tx_date", date)
         .order("created_at", { ascending: true }),
       supabase.from("companies").select("id, name").order("name"),
