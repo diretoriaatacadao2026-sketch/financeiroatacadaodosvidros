@@ -162,10 +162,38 @@ function ExtratoPage() {
             <Badge variant="outline" className="gap-1"><Unlock className="h-3 w-3" /> Caixa aberto</Badge>
           )}
         </div>
-        <Button asChild variant="outline">
-          <Link to="/caixa">Ir para Fechamento de Caixa</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={conciliarTodos} disabled={busy || data.tx.every((t) => t.reconciled)}>
+            <CheckCheck className="h-4 w-4" /> Conciliar todos
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/conciliacao" search={{ date }}><FileText className="h-4 w-4" /> Conciliar com PDF</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/caixa">Fechamento de Caixa</Link>
+          </Button>
+        </div>
       </div>
+
+      {(() => {
+        const totalCount = data.tx.length;
+        const reconCount = data.tx.filter((t) => t.reconciled).length;
+        if (totalCount === 0) return null;
+        const pct = Math.round((reconCount / totalCount) * 100);
+        return (
+          <Card className="p-3 flex items-center justify-between">
+            <div className="text-sm">
+              <span className="font-semibold">{reconCount}</span> de <span className="font-semibold">{totalCount}</span> lançamentos conciliados
+            </div>
+            <div className="flex items-center gap-2 min-w-[200px]">
+              <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
+                <div className="h-full bg-[color:var(--success)]" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="text-xs tabular-nums w-10 text-right">{pct}%</span>
+            </div>
+          </Card>
+        );
+      })()}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="p-4">
