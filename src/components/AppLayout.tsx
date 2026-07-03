@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Wallet, LogOut, Building2, Menu, Star, Fuel, Users, FileText } from "lucide-react";
+import { LayoutDashboard, Wallet, LogOut, Building2, Menu, Star, Fuel, Users, FileText, GitCompareArrows } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/format";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, adminOnly: false },
   { to: "/caixa", label: "Fechamento de Caixa", icon: Wallet, adminOnly: false },
+  { to: "/conciliacao", label: "Conciliação", icon: GitCompareArrows, adminOnly: false },
   { to: "/montadores", label: "Feedback Montadores", icon: Star, adminOnly: false },
   { to: "/abastecimentos", label: "Abastecimentos", icon: Fuel, adminOnly: false },
   { to: "/relatorios", label: "Relatórios", icon: FileText, adminOnly: false },
