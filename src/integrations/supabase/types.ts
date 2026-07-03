@@ -14,6 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
+      bank_statement_items: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          direction: string
+          id: string
+          item_date: string
+          match_status: string
+          matched_tx_id: string | null
+          statement_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          direction: string
+          id?: string
+          item_date: string
+          match_status?: string
+          matched_tx_id?: string | null
+          statement_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          direction?: string
+          id?: string
+          item_date?: string
+          match_status?: string
+          matched_tx_id?: string | null
+          statement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_items_matched_tx_id_fkey"
+            columns: ["matched_tx_id"]
+            isOneToOne: false
+            referencedRelation: "cash_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_items_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_statements: {
+        Row: {
+          bank_hint: string | null
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          file_name: string
+          id: string
+          items_count: number
+          raw_text: string | null
+          statement_date: string
+          total_credits: number
+          total_debits: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          bank_hint?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_name: string
+          id?: string
+          items_count?: number
+          raw_text?: string | null
+          statement_date: string
+          total_credits?: number
+          total_debits?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          bank_hint?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_name?: string
+          id?: string
+          items_count?: number
+          raw_text?: string | null
+          statement_date?: string
+          total_credits?: number
+          total_debits?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cash_accounts: {
         Row: {
           company_id: string
@@ -106,6 +213,9 @@ export type Database = {
           id: string
           number: number
           payment_method: Database["public"]["Enums"]["payment_method"]
+          reconciled: boolean
+          reconciled_at: string | null
+          reconciled_by: string | null
           tx_date: string
           tx_type: Database["public"]["Enums"]["tx_type"]
           updated_at: string
@@ -123,6 +233,9 @@ export type Database = {
           id?: string
           number?: number
           payment_method: Database["public"]["Enums"]["payment_method"]
+          reconciled?: boolean
+          reconciled_at?: string | null
+          reconciled_by?: string | null
           tx_date?: string
           tx_type: Database["public"]["Enums"]["tx_type"]
           updated_at?: string
@@ -140,6 +253,9 @@ export type Database = {
           id?: string
           number?: number
           payment_method?: Database["public"]["Enums"]["payment_method"]
+          reconciled?: boolean
+          reconciled_at?: string | null
+          reconciled_by?: string | null
           tx_date?: string
           tx_type?: Database["public"]["Enums"]["tx_type"]
           updated_at?: string

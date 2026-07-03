@@ -16,6 +16,7 @@ import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedMontadoresRouteImport } from './routes/_authenticated/montadores'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedConciliacaoRouteImport } from './routes/_authenticated/conciliacao'
 import { Route as AuthenticatedCaixaRouteImport } from './routes/_authenticated/caixa'
 import { Route as AuthenticatedAbastecimentosRouteImport } from './routes/_authenticated/abastecimentos'
 import { Route as AuthenticatedExtratoDateRouteImport } from './routes/_authenticated/extrato.$date'
@@ -54,6 +55,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedConciliacaoRoute =
+  AuthenticatedConciliacaoRouteImport.update({
+    id: '/conciliacao',
+    path: '/conciliacao',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCaixaRoute = AuthenticatedCaixaRouteImport.update({
   id: '/caixa',
   path: '/caixa',
@@ -77,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/abastecimentos': typeof AuthenticatedAbastecimentosRoute
   '/caixa': typeof AuthenticatedCaixaRoute
+  '/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/montadores': typeof AuthenticatedMontadoresRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -88,6 +96,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/abastecimentos': typeof AuthenticatedAbastecimentosRoute
   '/caixa': typeof AuthenticatedCaixaRoute
+  '/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/montadores': typeof AuthenticatedMontadoresRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -101,6 +110,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/abastecimentos': typeof AuthenticatedAbastecimentosRoute
   '/_authenticated/caixa': typeof AuthenticatedCaixaRoute
+  '/_authenticated/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/montadores': typeof AuthenticatedMontadoresRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/abastecimentos'
     | '/caixa'
+    | '/conciliacao'
     | '/dashboard'
     | '/montadores'
     | '/relatorios'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/abastecimentos'
     | '/caixa'
+    | '/conciliacao'
     | '/dashboard'
     | '/montadores'
     | '/relatorios'
@@ -137,6 +149,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/abastecimentos'
     | '/_authenticated/caixa'
+    | '/_authenticated/conciliacao'
     | '/_authenticated/dashboard'
     | '/_authenticated/montadores'
     | '/_authenticated/relatorios'
@@ -201,6 +214,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/conciliacao': {
+      id: '/_authenticated/conciliacao'
+      path: '/conciliacao'
+      fullPath: '/conciliacao'
+      preLoaderRoute: typeof AuthenticatedConciliacaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/caixa': {
       id: '/_authenticated/caixa'
       path: '/caixa'
@@ -228,6 +248,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAbastecimentosRoute: typeof AuthenticatedAbastecimentosRoute
   AuthenticatedCaixaRoute: typeof AuthenticatedCaixaRoute
+  AuthenticatedConciliacaoRoute: typeof AuthenticatedConciliacaoRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedMontadoresRoute: typeof AuthenticatedMontadoresRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
@@ -238,6 +259,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAbastecimentosRoute: AuthenticatedAbastecimentosRoute,
   AuthenticatedCaixaRoute: AuthenticatedCaixaRoute,
+  AuthenticatedConciliacaoRoute: AuthenticatedConciliacaoRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedMontadoresRoute: AuthenticatedMontadoresRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
@@ -256,13 +278,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
