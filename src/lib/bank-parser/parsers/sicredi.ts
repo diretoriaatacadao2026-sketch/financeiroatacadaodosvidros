@@ -1,4 +1,3 @@
-console.log("******** PARSER SICREDI EXECUTADO ********");
 import { ParsedStatement, BankTransaction } from "../types";
 
 function parseMoney(value: string): number {
@@ -10,7 +9,7 @@ function parseMoney(value: string): number {
 }
 
 export function parseSicredi(text: string): ParsedStatement {
-
+console.log("******** PARSER SICREDI EXECUTADO ********");
   const transactions: BankTransaction[] = [];
 
   const lines = text
