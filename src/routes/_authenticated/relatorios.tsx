@@ -181,6 +181,7 @@ function Kpi({ label, value, accent }: { label: string; value: string; accent?: 
 
 function RelFinanceiro({ start, end, companyId }: { start: string; end: string; companyId: string }) {
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
+  const [accountFilter, setAccountFilter] = useState<string>("all");
   const { data: raw } = useSuspenseQuery({
     queryKey: ["rel-fin", start, end, companyId],
     queryFn: async () => {
@@ -196,20 +197,27 @@ function RelFinanceiro({ start, end, companyId }: { start: string; end: string; 
     },
   });
   const data = useMemo(
-    () => paymentFilter === "all" ? raw : raw.filter((t) => t.payment_method === paymentFilter),
-    [raw, paymentFilter],
+    () => raw.filter((t) =>
+      (paymentFilter === "all" || t.payment_method === paymentFilter)
+      && (accountFilter === "all" || t.account_id === accountFilter)
+    ),
+    [raw, paymentFilter, accountFilter],
   );
   const companies = useSuspenseQuery(companiesQuery).data;
   const accountsQ = useSuspenseQuery({
     queryKey: ["rel-accounts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("cash_accounts").select("id, name");
+      const { data, error } = await supabase.from("cash_accounts").select("id, name, kind, company_id");
       if (error) throw error;
       return data ?? [];
     },
   });
   const cmap = useMemo(() => Object.fromEntries(companies.map((c) => [c.id, c.name])), [companies]);
   const amap = useMemo(() => Object.fromEntries(accountsQ.data.map((a) => [a.id, a.name])), [accountsQ.data]);
+  const accountOptions = useMemo(
+    () => accountsQ.data.filter((a) => companyId === "all" || a.company_id === companyId),
+    [accountsQ.data, companyId],
+  );
   const entradas = data.filter((t) => t.tx_type === "entrada").reduce((s, t) => s + Number(t.amount), 0);
   const saidas = data.filter((t) => t.tx_type === "saida").reduce((s, t) => s + Number(t.amount), 0);
 
@@ -230,22 +238,41 @@ function RelFinanceiro({ start, end, companyId }: { start: string; end: string; 
   return (
     <div className="space-y-4">
       <Card className="p-3 no-print">
-        <div className="flex flex-wrap items-center gap-3">
-          <Label className="text-xs">Forma de pagamento</Label>
-          <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-            <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {PAYMENT_METHODS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {paymentFilter !== "all" && (
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <Label className="text-xs">Forma de pagamento</Label>
+            <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {PAYMENT_METHODS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Banco / Conta</Label>
+            <Select value={accountFilter} onValueChange={setAccountFilter}>
+              <SelectTrigger className="w-64"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {accountOptions.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}{a.kind ? ` (${a.kind})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {(paymentFilter !== "all" || accountFilter !== "all") && (
             <span className="text-xs text-muted-foreground">
-              Filtrando por: {PAYMENT_METHODS.find((p) => p.value === paymentFilter)?.label}
+              {paymentFilter !== "all" && `Pagto: ${PAYMENT_METHODS.find((p) => p.value === paymentFilter)?.label}`}
+              {paymentFilter !== "all" && accountFilter !== "all" && " · "}
+              {accountFilter !== "all" && `Banco: ${amap[accountFilter] ?? "—"}`}
             </span>
           )}
         </div>
       </Card>
+
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Kpi label="Entradas" value={brl(entradas)} accent="text-emerald-600" />
