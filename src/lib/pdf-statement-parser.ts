@@ -7,12 +7,18 @@ import workerSrc from "pdfjs-dist/build/pdf.worker.mjs?url";
 
 (pdfjs as unknown as { GlobalWorkerOptions: { workerSrc: string } }).GlobalWorkerOptions.workerSrc = workerSrc;
 
+export type StatementPaymentMethod =
+  | "pix" | "transferencia" | "cartao_debito" | "cartao_credito"
+  | "boleto" | "dinheiro" | "cheque" | null;
+
 export interface ParsedStatementItem {
   item_date: string; // ISO YYYY-MM-DD
   description: string;
   amount: number; // positive value
   direction: "credit" | "debit";
+  inferred_payment_method: StatementPaymentMethod;
 }
+
 
 export interface ParsedStatement {
   raw_text: string;
@@ -89,7 +95,20 @@ function parseBRAmount(token: string): number | null {
   return val;
 }
 
+export function inferPaymentMethod(desc: string): StatementPaymentMethod {
+  const s = desc.toLowerCase();
+  if (/\bpix\b/.test(s)) return "pix";
+  if (/\b(ted|doc|transf|transferencia|transferência)\b/.test(s)) return "transferencia";
+  if (/boleto|cobran[cç]a|t[ií]tulo/.test(s)) return "boleto";
+  if (/cheque/.test(s)) return "cheque";
+  if (/cr[eé]dito.*(cart|visa|master|elo|hiper)|cart[aã]o.*cr[eé]d|compra.*cr[eé]dito/.test(s)) return "cartao_credito";
+  if (/d[eé]bito.*(cart|visa|master|elo)|cart[aã]o.*d[eé]b|compra.*d[eé]bito/.test(s)) return "cartao_debito";
+  if (/saque|dep[oó]sito.*dinheiro|dinheiro/.test(s)) return "dinheiro";
+  return null;
+}
+
 const IGNORE_KEYWORDS = /saldo|s\s*a\s*l\s*d\s*o|total|per[ií]odo|extrato|conta corrente|ag[eê]ncia|cliente|data.*hist|lan[cç]amento|dispon[ií]vel/i;
+
 
 function detectBank(text: string): string | null {
   const t = text.toLowerCase().slice(0, 2000);
@@ -170,7 +189,9 @@ export async function parseStatementPdf(file: File): Promise<ParsedStatement> {
       description,
       amount: Math.abs(amount),
       direction,
+      inferred_payment_method: inferPaymentMethod(description),
     });
+
   }
 
   const total_credits = items.filter((i) => i.direction === "credit").reduce((s, i) => s + i.amount, 0);
