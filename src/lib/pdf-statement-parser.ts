@@ -176,7 +176,9 @@ export async function parseStatementPdf(file: File): Promise<ParsedStatement> {
       description,
       amount: Math.abs(amount),
       direction,
+      inferred_payment_method: inferPaymentMethod(description),
     });
+
   }
 
   const total_credits = items.filter((i) => i.direction === "credit").reduce((s, i) => s + i.amount, 0);
