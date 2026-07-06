@@ -1,3 +1,4 @@
+console.log("******** PARSER SICREDI EXECUTADO ********");
 import { ParsedStatement, BankTransaction } from "../types";
 
 function parseMoney(value: string): number {
