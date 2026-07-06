@@ -2,32 +2,28 @@ export type TransactionType = "credit" | "debit";
 
 export type PaymentMethod =
   | "pix"
-  | "boleto"
   | "ted"
   | "doc"
+  | "boleto"
   | "cartao"
-  | "cheque"
   | "dinheiro"
-  | null;
+  | "cheque"
+  | "desconhecido";
 
-export interface StatementItem {
+export interface BankTransaction {
   date: string;
   description: string;
   amount: number;
+  balance: number;
   type: TransactionType;
   paymentMethod: PaymentMethod;
+  document?: string;
+  rawLine: string;
 }
 
 export interface ParsedStatement {
   bank: string;
-  account?: string;
-  agency?: string;
-  period?: string;
-
-  items: StatementItem[];
-
+  transactions: BankTransaction[];
   totalCredits: number;
   totalDebits: number;
-
-  rawText: string;
 }
