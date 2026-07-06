@@ -7,12 +7,18 @@ import workerSrc from "pdfjs-dist/build/pdf.worker.mjs?url";
 
 (pdfjs as unknown as { GlobalWorkerOptions: { workerSrc: string } }).GlobalWorkerOptions.workerSrc = workerSrc;
 
+export type StatementPaymentMethod =
+  | "pix" | "transferencia" | "cartao_debito" | "cartao_credito"
+  | "boleto" | "dinheiro" | "cheque" | null;
+
 export interface ParsedStatementItem {
   item_date: string; // ISO YYYY-MM-DD
   description: string;
   amount: number; // positive value
   direction: "credit" | "debit";
+  inferred_payment_method: StatementPaymentMethod;
 }
+
 
 export interface ParsedStatement {
   raw_text: string;
