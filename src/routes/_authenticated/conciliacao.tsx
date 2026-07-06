@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { toast } from "sonner";
@@ -10,12 +10,15 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { brl, dateBR } from "@/lib/format";
+import { brl, dateBR, PAYMENT_METHODS } from "@/lib/format";
 import { parseStatementPdf, type ParsedStatement, type ParsedStatementItem } from "@/lib/pdf-statement-parser";
-import { CheckCircle2, AlertCircle, XCircle, Upload, FileText, Loader2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, XCircle, Upload, FileText, Loader2, Link2, Unlink } from "lucide-react";
 
 const searchSchema = z.object({
   date: fallback(z.string(), new Date().toISOString().slice(0, 10)).default(new Date().toISOString().slice(0, 10)),
@@ -27,6 +30,12 @@ export const Route = createFileRoute("/_authenticated/conciliacao")({
   head: () => ({ meta: [{ title: "Conciliação Bancária — Glass ERP" }] }),
   component: ConciliacaoPage,
 });
+
+const BANKS = [
+  "Itaú", "Bradesco", "Banco do Brasil", "Santander", "Caixa",
+  "Nubank", "Inter", "Sicoob", "Sicredi", "Safra", "BTG Pactual",
+  "C6 Bank", "PagBank", "Mercado Pago", "Outro",
+] as const;
 
 interface Tx {
   id: string;
@@ -42,6 +51,7 @@ type MatchStatus = "matched" | "unmatched" | "divergent";
 interface MatchedItem extends ParsedStatementItem {
   matched_tx_id: string | null;
   status: MatchStatus;
+  manual?: boolean;
 }
 
 function ConciliacaoPage() {
@@ -52,6 +62,7 @@ function ConciliacaoPage() {
   const [matches, setMatches] = useState<MatchedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [fileName, setFileName] = useState<string>("");
+  const [bank, setBank] = useState<string>("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: dayTx } = useQuery({
@@ -68,22 +79,24 @@ function ConciliacaoPage() {
   const doMatch = (items: ParsedStatementItem[], txs: Tx[]): MatchedItem[] => {
     const used = new Set<string>();
     return items.map((it) => {
-      // Look for an unused tx with same value and matching direction
       const wantType = it.direction === "credit" ? "entrada" : "saida";
-      const candidates = txs.filter((t) =>
-        !used.has(t.id)
-        && t.tx_type === wantType
-        && Math.abs(Number(t.amount) - it.amount) < 0.01
-      );
-      if (candidates.length > 0) {
-        used.add(candidates[0].id);
-        return { ...it, matched_tx_id: candidates[0].id, status: "matched" as MatchStatus };
+      // Score candidates: same value & direction is required; +2 for payment_method match
+      const scored = txs
+        .filter((t) => !used.has(t.id) && t.tx_type === wantType && Math.abs(Number(t.amount) - it.amount) < 0.01)
+        .map((t) => ({
+          t,
+          score: (it.inferred_payment_method && t.payment_method === it.inferred_payment_method) ? 2 : 1,
+        }))
+        .sort((a, b) => b.score - a.score);
+      if (scored.length > 0) {
+        used.add(scored[0].t.id);
+        return { ...it, matched_tx_id: scored[0].t.id, status: "matched" as MatchStatus };
       }
-      // Divergent: same amount, wrong direction? Or close amount?
-      const close = txs.filter((t) => !used.has(t.id) && Math.abs(Number(t.amount) - it.amount) < 1);
-      if (close.length > 0) {
-        return { ...it, matched_tx_id: close[0].id, status: "divergent" as MatchStatus };
-      }
+      // Divergent: value matches but direction wrong, OR close value
+      const wrongDir = txs.find((t) => !used.has(t.id) && Math.abs(Number(t.amount) - it.amount) < 0.01);
+      if (wrongDir) return { ...it, matched_tx_id: wrongDir.id, status: "divergent" as MatchStatus };
+      const close = txs.find((t) => !used.has(t.id) && Math.abs(Number(t.amount) - it.amount) < 1);
+      if (close) return { ...it, matched_tx_id: close.id, status: "divergent" as MatchStatus };
       return { ...it, matched_tx_id: null, status: "unmatched" as MatchStatus };
     });
   };
@@ -94,6 +107,7 @@ function ConciliacaoPage() {
     try {
       const p = await parseStatementPdf(file);
       setParsed(p);
+      if (!bank && p.bank_hint) setBank(p.bank_hint);
       const txs = dayTx ?? [];
       setMatches(doMatch(p.items, txs));
       toast.success(`${p.items.length} lançamentos extraídos do PDF`);
@@ -102,6 +116,34 @@ function ConciliacaoPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Re-run matching when transactions load after parsing
+  useEffect(() => {
+    if (parsed && dayTx && matches.every((m) => !m.manual)) {
+      setMatches(doMatch(parsed.items, dayTx));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayTx?.length]);
+
+  const setRowMatch = (idx: number, txId: string | null) => {
+    setMatches((prev) => {
+      const next = [...prev];
+      const m = { ...next[idx], manual: true };
+      if (txId === null) {
+        m.matched_tx_id = null;
+        m.status = "unmatched";
+      } else {
+        const tx = (dayTx ?? []).find((t) => t.id === txId);
+        m.matched_tx_id = txId;
+        const wantType = m.direction === "credit" ? "entrada" : "saida";
+        const sameAmount = tx && Math.abs(Number(tx.amount) - m.amount) < 0.01;
+        const sameDir = tx && tx.tx_type === wantType;
+        m.status = (sameAmount && sameDir) ? "matched" : "divergent";
+      }
+      next[idx] = m;
+      return next;
+    });
   };
 
   const applyReconciliation = async () => {
@@ -123,54 +165,62 @@ function ConciliacaoPage() {
     const matched = matches.filter((m) => m.status === "matched").length;
     const divergent = matches.filter((m) => m.status === "divergent").length;
     const unmatched = matches.filter((m) => m.status === "unmatched").length;
-    const usedTxIds = new Set(matches.filter((m) => m.status === "matched").map((m) => m.matched_tx_id));
+    const usedTxIds = new Set(matches.filter((m) => m.matched_tx_id).map((m) => m.matched_tx_id));
     const notInPdf = (dayTx ?? []).filter((t) => !usedTxIds.has(t.id));
     return { matched, divergent, unmatched, notInPdf };
   }, [matches, dayTx]);
+
+  const pmLabel = (v: string | null) => v ? (PAYMENT_METHODS.find((p) => p.value === v)?.label ?? v) : "—";
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Conciliação Bancária</h1>
-          <p className="text-sm text-muted-foreground">Upload do extrato do banco (PDF) e comparação com os lançamentos do dia</p>
+          <p className="text-sm text-muted-foreground">Envie o extrato do banco (PDF), informe qual banco é e concilie automaticamente ou manualmente.</p>
         </div>
-        <div className="flex items-end gap-2">
-          <div>
-            <Label htmlFor="cdate" className="text-xs">Data</Label>
-            <Input
-              id="cdate"
-              type="date"
-              value={date}
-              onChange={(e) => navigate({ search: { date: e.target.value }, replace: true })}
-              className="h-9"
-            />
-          </div>
+        <div>
+          <Label htmlFor="cdate" className="text-xs">Data</Label>
+          <Input
+            id="cdate"
+            type="date"
+            value={date}
+            onChange={(e) => navigate({ search: { date: e.target.value }, replace: true })}
+            className="h-9"
+          />
         </div>
       </div>
 
       <Card className="p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
           <div>
-            <h3 className="font-semibold">1. Enviar extrato bancário</h3>
-            <p className="text-xs text-muted-foreground">PDF exportado do internet banking. {fileName && <span className="font-medium text-foreground">Arquivo: {fileName}</span>}</p>
+            <Label className="text-xs">Banco do extrato</Label>
+            <Select value={bank} onValueChange={setBank}>
+              <SelectTrigger><SelectValue placeholder="Selecione o banco antes de enviar" /></SelectTrigger>
+              <SelectContent>
+                {BANKS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {fileName ? <>Arquivo: <span className="font-medium text-foreground">{fileName}</span></> : "PDF exportado do internet banking."}
+              {parsed?.bank_hint && <> · Detectado: <span className="font-medium">{parsed.bank_hint}</span></>}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              ref={inputRef}
-              type="file"
-              accept="application/pdf"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFile(f);
-              }}
-            />
-            <Button onClick={() => inputRef.current?.click()} disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              {loading ? "Processando..." : "Selecionar PDF"}
-            </Button>
-          </div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (!bank) { toast.error("Selecione o banco antes de enviar o PDF"); e.target.value = ""; return; }
+              if (f) handleFile(f);
+            }}
+          />
+          <Button onClick={() => inputRef.current?.click()} disabled={loading || !bank}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {loading ? "Processando..." : "Selecionar PDF"}
+          </Button>
         </div>
       </Card>
 
@@ -178,8 +228,8 @@ function ConciliacaoPage() {
         <>
           <div className="grid gap-3 sm:grid-cols-4">
             <Card className="p-4">
-              <div className="text-xs uppercase text-muted-foreground">Banco detectado</div>
-              <div className="mt-1 text-lg font-semibold">{parsed.bank_hint ?? "Genérico"}</div>
+              <div className="text-xs uppercase text-muted-foreground">Banco</div>
+              <div className="mt-1 text-lg font-semibold">{bank || parsed.bank_hint || "Genérico"}</div>
               <div className="text-xs text-muted-foreground">{parsed.items.length} lançamentos no PDF</div>
             </Card>
             <Card className="p-4">
@@ -199,8 +249,8 @@ function ConciliacaoPage() {
           <Card className="p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="font-semibold">2. Aplicar conciliação</h3>
-                <p className="text-xs text-muted-foreground">Marca os {summary.matched} lançamento(s) com correspondência exata como conciliados no sistema.</p>
+                <h3 className="font-semibold">Aplicar conciliação</h3>
+                <p className="text-xs text-muted-foreground">Marca os {summary.matched} lançamento(s) com status "Confere" como conciliados no sistema.</p>
               </div>
               <Button onClick={applyReconciliation} disabled={loading || summary.matched === 0}>
                 <CheckCircle2 className="h-4 w-4" /> Aplicar {summary.matched} conciliação(ões)
@@ -210,41 +260,74 @@ function ConciliacaoPage() {
 
           <Card className="overflow-hidden">
             <div className="border-b p-4">
-              <h3 className="font-semibold flex items-center gap-2"><FileText className="h-4 w-4" /> Itens do extrato do banco</h3>
+              <h3 className="font-semibold flex items-center gap-2"><FileText className="h-4 w-4" /> Itens do extrato — comparação e edição manual</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Compare valor, tipo e forma de pagamento. Use o seletor da direita para vincular manualmente ou desvincular.</p>
             </div>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-24">Status</TableHead>
+                    <TableHead className="w-28">Status</TableHead>
                     <TableHead className="w-24">Data</TableHead>
                     <TableHead>Descrição</TableHead>
-                    <TableHead className="w-20">Tipo</TableHead>
+                    <TableHead className="w-24">Tipo</TableHead>
+                    <TableHead className="w-28">Pagto (PDF)</TableHead>
                     <TableHead className="text-right w-32">Valor</TableHead>
-                    <TableHead>Lançamento no app</TableHead>
+                    <TableHead className="min-w-[240px]">Lançamento no app / Vincular</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {matches.length === 0 && (
-                    <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Nenhum item extraído.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Nenhum item extraído.</TableCell></TableRow>
                   )}
                   {matches.map((m, i) => {
                     const tx = m.matched_tx_id ? (dayTx ?? []).find((t) => t.id === m.matched_tx_id) : null;
+                    const options = (dayTx ?? []).filter((t) => t.tx_type === (m.direction === "credit" ? "entrada" : "saida"));
                     return (
-                      <TableRow key={i}>
+                      <TableRow key={i} className={m.status === "matched" ? "bg-[color:var(--success)]/5" : undefined}>
                         <TableCell>
-                          {m.status === "matched" && <Badge className="gap-1 bg-[color:var(--success)] hover:bg-[color:var(--success)]"><CheckCircle2 className="h-3 w-3" /> Confere</Badge>}
+                          {m.status === "matched" && <Badge className="gap-1 bg-[color:var(--success)] hover:bg-[color:var(--success)]"><CheckCircle2 className="h-3 w-3" />{m.manual ? " Manual" : " Confere"}</Badge>}
                           {m.status === "divergent" && <Badge className="gap-1 bg-amber-500 hover:bg-amber-500"><AlertCircle className="h-3 w-3" /> Divergente</Badge>}
                           {m.status === "unmatched" && <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> Não achado</Badge>}
                         </TableCell>
                         <TableCell className="text-xs tabular-nums">{dateBR(m.item_date)}</TableCell>
                         <TableCell className="max-w-md truncate text-sm">{m.description}</TableCell>
                         <TableCell className="text-xs">{m.direction === "credit" ? "Crédito" : "Débito"}</TableCell>
+                        <TableCell className="text-xs">{pmLabel(m.inferred_payment_method)}</TableCell>
                         <TableCell className={`text-right tabular-nums font-semibold ${m.direction === "credit" ? "text-[color:var(--success)]" : "text-destructive"}`}>
                           {brl(m.amount)}
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {tx ? <span className="truncate">{tx.description} · {brl(Number(tx.amount))}</span> : "—"}
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={m.matched_tx_id ?? "none"}
+                              onValueChange={(v) => setRowMatch(i, v === "none" ? null : v)}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Vincular a...">
+                                  {tx ? (
+                                    <span className="flex items-center gap-1">
+                                      <Link2 className="h-3 w-3" />
+                                      <span className="truncate max-w-[180px]">{tx.description} · {brl(Number(tx.amount))} · {pmLabel(tx.payment_method)}</span>
+                                    </span>
+                                  ) : "Não vinculado"}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent className="max-w-[420px]">
+                                <SelectItem value="none">— Não vinculado —</SelectItem>
+                                {options.map((o) => (
+                                  <SelectItem key={o.id} value={o.id}>
+                                    {brl(Number(o.amount))} · {pmLabel(o.payment_method)} · {o.description}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {m.matched_tx_id && (
+                              <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setRowMatch(i, null)} title="Desvincular">
+                                <Unlink className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -276,7 +359,7 @@ function ConciliacaoPage() {
                     {summary.notInPdf.map((t) => (
                       <TableRow key={t.id}>
                         <TableCell className="text-sm max-w-md truncate">{t.description}</TableCell>
-                        <TableCell className="text-xs">{t.payment_method}</TableCell>
+                        <TableCell className="text-xs">{pmLabel(t.payment_method)}</TableCell>
                         <TableCell className="text-xs">{t.tx_type}</TableCell>
                         <TableCell className={`text-right tabular-nums font-semibold ${t.tx_type === "entrada" ? "text-[color:var(--success)]" : "text-destructive"}`}>
                           {brl(Number(t.amount))}
@@ -294,7 +377,7 @@ function ConciliacaoPage() {
       {!parsed && !loading && (
         <Card className="p-8 text-center text-muted-foreground">
           <FileText className="mx-auto h-10 w-10 opacity-50" />
-          <p className="mt-3 text-sm">Envie um extrato PDF do banco para começar a conciliação do dia <span className="font-medium text-foreground">{dateBR(date)}</span>.</p>
+          <p className="mt-3 text-sm">Selecione o banco e envie um extrato PDF para começar a conciliação do dia <span className="font-medium text-foreground">{dateBR(date)}</span>.</p>
         </Card>
       )}
     </div>
