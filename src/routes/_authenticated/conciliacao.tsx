@@ -1,3 +1,4 @@
+import { parseBankStatement } from "@/lib/bank-parser";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useRef, useEffect } from "react";
@@ -105,7 +106,7 @@ function ConciliacaoPage() {
     setLoading(true);
     setFileName(file.name);
     try {
-      const p = await parseStatementPdf(file);
+     const p = await parseBankStatement(file);
       setParsed(p);
       if (!bank && p.bank_hint) setBank(p.bank_hint);
       const txs = dayTx ?? [];
