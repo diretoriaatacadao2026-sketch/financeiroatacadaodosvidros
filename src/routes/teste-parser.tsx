@@ -22,6 +22,9 @@ function TesteParser() {
     try {
       const resultado = await extractPdfText(file);
       setTexto(resultado);
+      console.log(resultado);
+
+console.log(resultado.split("\n"));
     } catch (err) {
       console.error(err);
       alert("Erro ao ler PDF");
