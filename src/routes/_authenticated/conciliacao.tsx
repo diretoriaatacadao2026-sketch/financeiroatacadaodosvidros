@@ -193,18 +193,12 @@ function ConciliacaoPage() {
       </div>
 
       <Card className="p-4">
-        <div className="grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
+        <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
           <div>
-            <Label className="text-xs">Banco do extrato</Label>
-            <Select value={bank} onValueChange={setBank}>
-              <SelectTrigger><SelectValue placeholder="Selecione o banco antes de enviar" /></SelectTrigger>
-              <SelectContent>
-                {BANKS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <Label className="text-xs">Extrato bancário (PDF)</Label>
             <p className="mt-1 text-xs text-muted-foreground">
-              {fileName ? <>Arquivo: <span className="font-medium text-foreground">{fileName}</span></> : "PDF exportado do internet banking."}
-              {parsed?.bank_hint && <> · Detectado: <span className="font-medium">{parsed.bank_hint}</span></>}
+              {fileName ? <>Arquivo: <span className="font-medium text-foreground">{fileName}</span></> : "Envie o PDF exportado do internet banking — o banco será identificado automaticamente."}
+              {(bank || parsed?.bank_hint) && <> · Detectado: <span className="font-medium">{bank || parsed?.bank_hint}</span></>}
             </p>
           </div>
           <input
@@ -214,11 +208,10 @@ function ConciliacaoPage() {
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (!bank) { toast.error("Selecione o banco antes de enviar o PDF"); e.target.value = ""; return; }
               if (f) handleFile(f);
             }}
           />
-          <Button onClick={() => inputRef.current?.click()} disabled={loading || !bank}>
+          <Button onClick={() => inputRef.current?.click()} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {loading ? "Processando..." : "Selecionar PDF"}
           </Button>
