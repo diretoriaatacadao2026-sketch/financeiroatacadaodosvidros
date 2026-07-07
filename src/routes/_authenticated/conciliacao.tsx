@@ -178,7 +178,7 @@ function ConciliacaoPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Conciliação Bancária</h1>
-          <p className="text-sm text-muted-foreground">Envie o extrato do banco (PDF), informe qual banco é e concilie automaticamente ou manualmente.</p>
+          <p className="text-sm text-muted-foreground">Envie o extrato do banco (PDF) — o banco será identificado automaticamente e a conciliação será feita.</p>
         </div>
         <div>
           <Label htmlFor="cdate" className="text-xs">Data</Label>
