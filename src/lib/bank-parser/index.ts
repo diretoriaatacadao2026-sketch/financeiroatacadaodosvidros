@@ -18,6 +18,7 @@ console.log("BANCO DETECTADO:", bank);
     case "sicredi":
       return parseSicredi(text);
 case "infyniti":
+  console.log("ENTROU NO PARSER INFYNITI");
   return parseInfyniti(text);
       
     default:
