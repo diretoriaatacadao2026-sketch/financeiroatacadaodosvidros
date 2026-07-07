@@ -1,8 +1,8 @@
 import { extractPdfText } from "./extractor";
 import { detectBank } from "./detect-bank";
 import { parseSicredi } from "./parsers/sicredi";
-import { ParsedStatement } from "./types";
 import { parseInfyniti } from "./parsers/infyniti";
+import { ParsedStatement } from "./types";
 
 export async function parseBankStatement(
   file: File
