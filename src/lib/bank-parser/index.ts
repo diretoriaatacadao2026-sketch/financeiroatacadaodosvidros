@@ -2,6 +2,7 @@ import { extractPdfText } from "./extractor";
 import { detectBank } from "./detect-bank";
 import { parseSicredi } from "./parsers/sicredi";
 import { ParsedStatement } from "./types";
+import { parseInfyniti } from "./parsers/infyniti";
 
 export async function parseBankStatement(
   file: File
@@ -15,7 +16,9 @@ export async function parseBankStatement(
 
     case "sicredi":
       return parseSicredi(text);
-
+case "infyniti":
+  return parseInfyniti(text);
+      
     default:
       throw new Error(`Banco ainda não suportado: ${bank}`);
 
