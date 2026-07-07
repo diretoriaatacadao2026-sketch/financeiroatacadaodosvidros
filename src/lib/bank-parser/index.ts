@@ -11,7 +11,8 @@ export async function parseBankStatement(
   const text = await extractPdfText(file);
 
   const bank = detectBank(text);
-
+console.log("BANCO DETECTADO:", bank);
+  
   switch (bank) {
 
     case "sicredi":
