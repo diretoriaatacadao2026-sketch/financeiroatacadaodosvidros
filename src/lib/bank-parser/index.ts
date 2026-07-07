@@ -17,9 +17,7 @@ export async function parseBankStatement(
       return parseSicredi(text);
 
     default:
-      throw new Error(
-        `Banco ainda não suportado: ${bank}`
-      );
+      throw new Error(`Banco ainda não suportado: ${bank}`);
 
   }
 
