@@ -35,7 +35,7 @@ export function parseInfyniti(text: string): ParsedStatement {
 
       description: tipo.toUpperCase(),
 
-      amount: parseMoney(liquido),
+      amount: parseMoney(bruto),
 
       direction: "credit",
 
