@@ -1,29 +1,26 @@
 import { ParsedStatementItem } from "./types";
 
-export interface MatchResult {
-  statement: ParsedStatementItem;
-  transaction: any;
-  score: number;
-  autoMatch: boolean;
+export interface MatchRow extends ParsedStatementItem {
+  status: "matched" | "divergent" | "unmatched";
+  matched_tx_id: string | null;
+  manual: boolean;
 }
 
 export function doMatch(
   statements: ParsedStatementItem[],
   transactions: any[]
-): MatchResult[] {
+): MatchRow[] {
 
-  const results: MatchResult[] = [];
+  return statements.map((s) => {
 
-  for (const s of statements) {
-
-    let best: any = null;
-    let bestScore = 0;
+    let melhor: any = null;
+    let melhorScore = 0;
 
     for (const t of transactions) {
 
       let score = 0;
 
-      // Valor
+      // Valor (peso maior)
       if (Math.abs(Number(t.amount) - s.amount) < 0.01)
         score += 60;
 
@@ -31,38 +28,58 @@ export function doMatch(
       if (t.date === s.item_date)
         score += 20;
 
+      // Tipo
+      if (
+        (s.direction === "credit" && t.tx_type === "entrada") ||
+        (s.direction === "debit" && t.tx_type === "saida")
+      )
+        score += 10;
+
       // Forma de pagamento
       if (
         t.payment_method &&
         s.inferred_payment_method &&
         t.payment_method === s.inferred_payment_method
       )
-        score += 10;
+        score += 5;
 
       // Descrição
-      const d1 = (t.description || "").toUpperCase();
-      const d2 = (s.description || "").toUpperCase();
+      const d1 = (t.description ?? "").toUpperCase();
+      const d2 = (s.description ?? "").toUpperCase();
 
       if (
         d1 &&
         d2 &&
         (d1.includes(d2) || d2.includes(d1))
       )
-        score += 10;
+        score += 5;
 
-      if (score > bestScore) {
-        bestScore = score;
-        best = t;
+      if (score > melhorScore) {
+        melhorScore = score;
+        melhor = t;
       }
     }
 
-    results.push({
-      statement: s,
-      transaction: best,
-      score: bestScore,
-      autoMatch: bestScore >= 90,
-    });
-  }
+    return {
 
-  return results;
+      ...s,
+
+      matched_tx_id:
+        melhorScore >= 80
+          ? melhor.id
+          : null,
+
+      manual: false,
+
+      status:
+        melhorScore >= 90
+          ? "matched"
+          : melhorScore >= 60
+          ? "divergent"
+          : "unmatched",
+
+    };
+
+  });
+
 }
