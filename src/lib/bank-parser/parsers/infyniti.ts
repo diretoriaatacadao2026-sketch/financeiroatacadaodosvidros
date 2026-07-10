@@ -12,25 +12,7 @@ function parseMoney(value: string): number {
   );
 }
 
-export function parseInfyniti(text: string): ParsedStatement {
-
-  const items: ParsedStatementItem[] = [];
-
-  const regex =
-    const regex =
-  /(\d{2})\s+(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez),\s+(\d{4}).*?(Pix|Débito|Crédito).*?Aprovada\s+\+\s*([\d.,]+)\s+\+\s*([\d.,]+)/gsi;
-
-  let match;
-
-  while ((match = regex.exec(text)) !== null) {
-
-    const dia = match[1];
-const mesTxt = match[2];
-const ano = match[3];
-const tipo = match[4];
-const bruto = match[5];
-
-const meses: Record<string, string> = {
+const MONTHS: Record<string, string> = {
   Jan: "01",
   Fev: "02",
   Mar: "03",
@@ -45,28 +27,84 @@ const meses: Record<string, string> = {
   Dez: "12",
 };
 
-const mes = meses[mesTxt] ?? "01";
+export function parseInfyniti(text: string): ParsedStatement {
 
-    items.push({
+  const items: ParsedStatementItem[] = [];
 
-      item_date: `${ano}-${mes}-${dia.padStart(2,"0")}`,
+  const lines = text
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean);
 
-      description: tipo.toUpperCase(),
+  let currentDate = "";
+  let currentMethod = "";
 
-      amount: parseMoney(bruto),
+  for (let i = 0; i < lines.length; i++) {
 
-      direction: "credit",
+    const line = lines[i];
 
-      inferred_payment_method:
-        tipo === "Pix"
-          ? "pix"
-          : tipo === "Débito"
-          ? "cartao_debito"
-          : "cartao_credito",
+    // Data
+    const dateMatch = line.match(
+      /^(\d{2})\s+(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez),\s+(\d{4})/
+    );
 
-      balance: 0
+    if (dateMatch) {
 
-    });
+      const dia = dateMatch[1];
+      const mes = MONTHS[dateMatch[2]];
+      const ano = dateMatch[3];
+
+      currentDate = `${ano}-${mes}-${dia}`;
+
+      continue;
+    }
+
+    // Forma de pagamento
+    if (
+      line === "Pix" ||
+      line === "Débito" ||
+      line === "Crédito"
+    ) {
+      currentMethod = line;
+      continue;
+    }
+
+    // Linha da venda
+    if (
+      line.includes("Aprovada") &&
+      line.includes("+")
+    ) {
+
+      const valores = line.match(
+        /\+\s*([\d.,]+)\s+\+\s*([\d.,]+)/
+      );
+
+      if (!valores) continue;
+
+      const bruto = parseMoney(valores[1]);
+
+      items.push({
+
+        item_date: currentDate,
+
+        description: currentMethod.toUpperCase(),
+
+        amount: bruto,
+
+        direction: "credit",
+
+        inferred_payment_method:
+          currentMethod === "Pix"
+            ? "pix"
+            : currentMethod === "Débito"
+            ? "cartao_debito"
+            : "cartao_credito",
+
+        balance: 0,
+
+      });
+
+    }
 
   }
 
@@ -76,11 +114,14 @@ const mes = meses[mesTxt] ?? "01";
 
     items,
 
-    total_credits: items.reduce((s,i)=>s+i.amount,0),
+    total_credits: items.reduce(
+      (s, i) => s + i.amount,
+      0
+    ),
 
-    total_debits:0,
+    total_debits: 0,
 
-    bank_hint:"Infyniti"
+    bank_hint: "Infyniti",
 
   };
 
