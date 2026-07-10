@@ -17,7 +17,8 @@ export function parseInfyniti(text: string): ParsedStatement {
   const items: ParsedStatementItem[] = [];
 
   const regex =
-    /(\d{2})\s+Jun,\s+(\d{4}).*?(Pix|Débito|Crédito).*?Aprovada\s+\+\s*([\d.,]+)\s+\+\s*([\d.,]+)/gs;
+    const regex =
+  /(\d{2})\s+(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez),\s+(\d{4}).*?(Pix|Débito|Crédito).*?Aprovada\s+\+\s*([\d.,]+)\s+\+\s*([\d.,]+)/gsi;
 
   let match;
 
