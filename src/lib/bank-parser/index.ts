@@ -18,7 +18,7 @@ export async function parseBankStatement(
 }
   
   const text = await extractPdfText(file);
-
+alert(text);
   const bank = detectBank(text);
 console.log("BANCO DETECTADO:", bank);
   
