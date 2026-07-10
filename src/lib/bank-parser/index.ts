@@ -9,6 +9,14 @@ export async function parseBankStatement(
   file: File
 ): Promise<ParsedStatement> {
 
+  if (file.name.toLowerCase().endsWith(".csv")) {
+
+  const csv = await file.text();
+
+  return parseRedeCsv(csv);
+
+}
+  
   const text = await extractPdfText(file);
 
   const bank = detectBank(text);
