@@ -1,71 +1,62 @@
 import { ParsedStatement, ParsedStatementItem } from "../types";
 
-function money(v: string): number {
+function parseMoney(value: string): number {
   return Number(
-    String(v)
-      .replace(/"/g, "")
+    (value || "0")
       .replace(/\./g, "")
       .replace(",", ".")
       .trim()
   );
 }
 
-function paymentMethod(modalidade: string) {
-  const m = modalidade.toLowerCase();
-
-  if (m.includes("pix")) return "pix";
-  if (m.includes("débito") || m.includes("debito")) return "cartao_debito";
-  if (m.includes("crédito") || m.includes("credito")) return "cartao_credito";
-
-  return null;
-}
-
 export function parseRedeCsv(csv: string): ParsedStatement {
 
-  const linhas = csv.split(/\r?\n/);
+  const linhas = csv
+    .split(/\r?\n/)
+    .filter(l => l.trim());
 
-  if (linhas.length < 2)
-    throw new Error("CSV vazio.");
+  const header = linhas[0].split(";");
 
-  const cab = linhas[0].split(";");
-console.log(cab);
-  
-  const idxData = cab.indexOf("data da venda");
-  const idxValor = cab.indexOf("valor da venda original");
-  const idxLiquido = cab.indexOf("valor líquido");
-  const idxModalidade = cab.indexOf("modalidade");
-  const idxNSU = cab.indexOf("NSU/CV");
+  const idxData = header.indexOf("data da venda");
+  const idxValor = header.indexOf("valor da venda original");
+  const idxModalidade = header.indexOf("modalidade");
+  const idxNSU = header.indexOf("NSU/CV");
+
+  if (
+    idxData === -1 ||
+    idxValor === -1 ||
+    idxModalidade === -1
+  ) {
+    throw new Error("Layout do CSV da Rede não reconhecido.");
+  }
 
   const items: ParsedStatementItem[] = [];
 
   for (let i = 1; i < linhas.length; i++) {
 
-    if (!linhas[i].trim()) continue;
+    const col = linhas[i].split(";");
 
-    const c = linhas[i].split(";");
+    const data = col[idxData];
 
-    if (i === 1) {
-  console.log(c);
-}
-    
-    const data = c[idxData];
-    const valor = c[idxValor];
-    const modalidade = c[idxModalidade];
-    const nsu = c[idxNSU];
+    if (!data) continue;
 
     items.push({
 
       item_date: data.split("/").reverse().join("-"),
 
-      description: `${modalidade} NSU ${nsu}`,
+      description: `${col[idxModalidade]} ${col[idxNSU] ?? ""}`.trim(),
 
-      amount: money(valor),
+      amount: parseMoney(col[idxValor]),
 
       direction: "credit",
 
-      inferred_payment_method: paymentMethod(modalidade),
-
-      balance: 0
+      inferred_payment_method:
+        col[idxModalidade]?.toLowerCase().includes("pix")
+          ? "pix"
+          : col[idxModalidade]?.toLowerCase().includes("débito") ||
+            col[idxModalidade]?.toLowerCase().includes("debito")
+          ? "cartao_debito"
+          : "cartao_credito",
 
     });
 
@@ -81,7 +72,7 @@ console.log(cab);
 
     total_debits: 0,
 
-    bank_hint: "Rede"
+    bank_hint: "rede"
 
   };
 
