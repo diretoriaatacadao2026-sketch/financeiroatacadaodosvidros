@@ -204,7 +204,7 @@ function ConciliacaoPage() {
           <input
             ref={inputRef}
             type="file"
-            accept="application/pdf"
+            accept="application/pdf,text/csv,.csv"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
