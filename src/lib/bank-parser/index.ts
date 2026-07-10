@@ -1,3 +1,4 @@
+import { parseRedeCsv } from "./parsers/rede-csv";
 import { extractPdfText } from "./extractor";
 import { detectBank } from "./detect-bank";
 import { parseSicredi } from "./parsers/sicredi";
