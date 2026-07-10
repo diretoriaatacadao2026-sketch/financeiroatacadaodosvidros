@@ -28,7 +28,8 @@ export function parseRedeCsv(csv: string): ParsedStatement {
     throw new Error("CSV vazio.");
 
   const cab = linhas[0].split(",");
-
+console.log(cab);
+  
   const idxData = cab.indexOf("data da venda");
   const idxValor = cab.indexOf("valor da venda original");
   const idxLiquido = cab.indexOf("valor líquido");
@@ -43,6 +44,10 @@ export function parseRedeCsv(csv: string): ParsedStatement {
 
     const c = linhas[i].split(",");
 
+    if (i === 1) {
+  console.log(c);
+}
+    
     const data = c[idxData];
     const valor = c[idxValor];
     const modalidade = c[idxModalidade];
