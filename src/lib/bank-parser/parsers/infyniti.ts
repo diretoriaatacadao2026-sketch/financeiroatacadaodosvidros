@@ -25,10 +25,27 @@ export function parseInfyniti(text: string): ParsedStatement {
   while ((match = regex.exec(text)) !== null) {
 
     const dia = match[1];
-    const ano = match[2];
-    const tipo = match[3];
-    const bruto = match[4];
-    const liquido = match[5];
+const mesTxt = match[2];
+const ano = match[3];
+const tipo = match[4];
+const bruto = match[5];
+
+const meses: Record<string, string> = {
+  Jan: "01",
+  Fev: "02",
+  Mar: "03",
+  Abr: "04",
+  Mai: "05",
+  Jun: "06",
+  Jul: "07",
+  Ago: "08",
+  Set: "09",
+  Out: "10",
+  Nov: "11",
+  Dez: "12",
+};
+
+const mes = meses[mesTxt] ?? "01";
 
     items.push({
 
