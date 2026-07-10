@@ -27,7 +27,7 @@ export function parseRedeCsv(csv: string): ParsedStatement {
   if (linhas.length < 2)
     throw new Error("CSV vazio.");
 
-  const cab = linhas[0].split(",");
+  const cab = linhas[0].split(";");
 console.log(cab);
   
   const idxData = cab.indexOf("data da venda");
@@ -42,7 +42,7 @@ console.log(cab);
 
     if (!linhas[i].trim()) continue;
 
-    const c = linhas[i].split(",");
+    const c = linhas[i].split(";");
 
     if (i === 1) {
   console.log(c);
