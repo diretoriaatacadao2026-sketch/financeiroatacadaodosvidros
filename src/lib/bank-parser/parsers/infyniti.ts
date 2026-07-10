@@ -49,7 +49,7 @@ const mes = meses[mesTxt] ?? "01";
 
     items.push({
 
-      item_date: `${ano}-06-${dia.padStart(2,"0")}`,
+      item_date: `${ano}-${mes}-${dia.padStart(2,"0")}`,
 
       description: tipo.toUpperCase(),
 
