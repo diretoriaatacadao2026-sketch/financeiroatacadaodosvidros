@@ -107,7 +107,15 @@ function ConciliacaoPage() {
     setFileName(file.name);
     try {
      const p = await parseBankStatement(file);
-      setParsed(p);
+
+alert(
+  "Banco: " +
+    p.bank_hint +
+    "\nItens: " +
+    p.items.length
+);
+
+setParsed(p);
       if (!bank && p.bank_hint) setBank(p.bank_hint);
       const txs = dayTx ?? [];
       setMatches(doMatch(p.items, txs));
