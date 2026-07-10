@@ -28,7 +28,9 @@ const MONTHS: Record<string, string> = {
 };
 
 export function parseInfyniti(text: string): ParsedStatement {
-
+  
+alert(text);
+  
   const items: ParsedStatementItem[] = [];
 
   const lines = text
