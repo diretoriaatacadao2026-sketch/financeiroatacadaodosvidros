@@ -35,6 +35,8 @@ export function parseInfyniti(text: string): ParsedStatement {
     .split(/\r?\n/)
     .map(l => l.trim())
     .filter(Boolean);
+  
+console.log(lines);
 
   let currentDate = "";
   let currentMethod = "";
