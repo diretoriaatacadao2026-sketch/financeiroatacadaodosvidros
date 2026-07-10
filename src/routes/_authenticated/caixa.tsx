@@ -148,13 +148,43 @@ function CaixaPage() {
   }, [tx]);
 
   const balancesByAccount = useMemo(() => {
-    const map = new Map<string, number>();
-    tx.forEach((t) => {
-      const delta = t.tx_type === "entrada" ? Number(t.amount) : -Number(t.amount);
-      map.set(t.account_id, (map.get(t.account_id) ?? 0) + delta);
-    });
-    return map;
-  }, [tx]);
+  const map = new Map<string, number>();
+
+  // Movimentações financeiras
+  tx.forEach((t) => {
+    const delta =
+      t.tx_type === "entrada"
+        ? Number(t.amount)
+        : -Number(t.amount);
+
+    map.set(
+      t.account_id,
+      (map.get(t.account_id) ?? 0) + delta
+    );
+  });
+
+  // Soma os suprimentos no Caixa Físico
+  supplies.forEach((s) => {
+
+    // Procura a conta Caixa Físico da empresa
+    const contaCaixa = base.accounts.find(
+      (a) =>
+        a.company_id === s.company_id &&
+        a.name.toLowerCase().includes("caixa")
+    );
+
+    if (!contaCaixa) return;
+
+    map.set(
+      contaCaixa.id,
+      (map.get(contaCaixa.id) ?? 0) + Number(s.amount)
+    );
+
+  });
+
+  return map;
+
+}, [tx, supplies, base.accounts]);
 
   const accountsToShow = companyFilter === "all" ? base.accounts : base.accounts.filter((a) => a.company_id === companyFilter);
 
