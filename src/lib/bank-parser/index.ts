@@ -4,15 +4,28 @@ import { detectBank } from "./detect-bank";
 import { parseSicredi } from "./parsers/sicredi";
 import { parseInfyniti } from "./parsers/infyniti";
 import { ParsedStatement } from "./types";
+import { parseInfynitiCsv } from "./parsers/infyniti-csv";
 
 export async function parseBankStatement(
   file: File
 ): Promise<ParsedStatement> {
 
-  if (file.name.toLowerCase().endsWith(".csv")) {
+ if (file.name.toLowerCase().endsWith(".csv")) {
 
   const csv = await file.text();
 
+  const csvLower = csv.toLowerCase();
+
+  // InfinitePay
+  if (
+    csvLower.includes("taxa aplicada") &&
+    csvLower.includes("status") &&
+    csvLower.includes("plano")
+  ) {
+    return parseInfynitiCsv(csv);
+  }
+
+  // Rede
   return parseRedeCsv(csv);
 
 }
