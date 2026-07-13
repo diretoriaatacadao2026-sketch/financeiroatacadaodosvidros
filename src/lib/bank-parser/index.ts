@@ -17,13 +17,16 @@ export async function parseBankStatement(
   const csvLower = csv.toLowerCase();
 
   // InfinitePay
-  if (
-    csvLower.includes("taxa aplicada") &&
-    csvLower.includes("status") &&
-    csvLower.includes("plano")
-  ) {
-    return parseInfynitiCsv(csv);
-  }
+ if (
+  csvLower.includes("taxa aplicada") &&
+  csvLower.includes("status") &&
+  csvLower.includes("plano")
+) {
+
+  alert("ENTROU NO PARSER CSV INFYNITI");
+
+  return parseInfynitiCsv(csv);
+}
 
   // Rede
   return parseRedeCsv(csv);
