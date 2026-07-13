@@ -1,3 +1,8 @@
+export function parseInfynitiCsv(csv: string): ParsedStatement {
+
+  alert(csv.substring(0, 1000));
+
+  const items: ParsedStatementItem[] = [];
 import {
   ParsedStatement,
   ParsedStatementItem,
