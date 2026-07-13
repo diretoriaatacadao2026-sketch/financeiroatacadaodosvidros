@@ -29,7 +29,7 @@ export function parseInfynitiCsv(csv: string): ParsedStatement {
     .split(/\r?\n/)
     .filter(l => l.trim());
 
-  alert(lines.slice(0, 10).join("\n"));
+  alert(csv.substring(0, 1000));
 
   if (lines.length < 2) {
     throw new Error("CSV vazio.");
