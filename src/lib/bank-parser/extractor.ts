@@ -1,3 +1,10 @@
+import * as pdfjs from "pdfjs-dist";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - worker as URL
+import workerSrc from "pdfjs-dist/build/pdf.worker.mjs?url";
+
+(pdfjs as unknown as { GlobalWorkerOptions: { workerSrc: string } }).GlobalWorkerOptions.workerSrc = workerSrc;
+
 export async function extractPdfText(file: File): Promise<string> {
 
   const buffer = await file.arrayBuffer();
