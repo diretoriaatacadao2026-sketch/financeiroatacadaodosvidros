@@ -28,17 +28,13 @@ const MONTHS: Record<string, string> = {
 };
 
 export function parseInfyniti(text: string): ParsedStatement {
-  
-alert(text);
-  
+
   const items: ParsedStatementItem[] = [];
 
   const lines = text
     .split(/\r?\n/)
     .map(l => l.trim())
     .filter(Boolean);
-  
-console.log(lines);
 
   let currentDate = "";
   let currentMethod = "";
