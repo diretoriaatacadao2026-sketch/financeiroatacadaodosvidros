@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { brl, dateBR, PAYMENT_METHODS } from "@/lib/format";
-import { parseStatementPdf, type ParsedStatement, type ParsedStatementItem } from "@/lib/pdf-statement-parser";
+import type { ParsedStatement, ParsedStatementItem } from "@/lib/bank-parser/types";
 import { CheckCircle2, AlertCircle, XCircle, Upload, FileText, Loader2, Link2, Unlink } from "lucide-react";
 
 const searchSchema = z.object({
@@ -106,22 +106,15 @@ function ConciliacaoPage() {
     setLoading(true);
     setFileName(file.name);
     try {
-     const p = await parseBankStatement(file);
+      const p = await parseBankStatement(file);
 
-alert(
-  "Banco: " +
-    p.bank_hint +
-    "\nItens: " +
-    p.items.length
-);
-
-setParsed(p);
+      setParsed(p);
       if (!bank && p.bank_hint) setBank(p.bank_hint);
       const txs = dayTx ?? [];
       setMatches(doMatch(p.items, txs));
-      toast.success(`${p.items.length} lançamentos extraídos do PDF`);
+      toast.success(`${p.items.length} lançamentos extraídos do extrato`);
     } catch (e) {
-      toast.error("Erro ao ler PDF: " + (e instanceof Error ? e.message : String(e)));
+      toast.error("Erro ao ler extrato: " + (e instanceof Error ? e.message : String(e)));
     } finally {
       setLoading(false);
     }
@@ -186,7 +179,7 @@ setParsed(p);
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Conciliação Bancária</h1>
-          <p className="text-sm text-muted-foreground">Envie o extrato do banco (PDF) — o banco será identificado automaticamente e a conciliação será feita.</p>
+          <p className="text-sm text-muted-foreground">Envie o extrato do banco (PDF, CSV ou print/screenshot) — o banco será identificado automaticamente e a conciliação será feita com o valor bruto.</p>
         </div>
         <div>
           <Label htmlFor="cdate" className="text-xs">Data</Label>
@@ -203,16 +196,16 @@ setParsed(p);
       <Card className="p-4">
         <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
           <div>
-            <Label className="text-xs">Extrato bancário (PDF)</Label>
+            <Label className="text-xs">Extrato bancário (PDF, CSV ou print)</Label>
             <p className="mt-1 text-xs text-muted-foreground">
-              {fileName ? <>Arquivo: <span className="font-medium text-foreground">{fileName}</span></> : "Envie o PDF exportado do internet banking — o banco será identificado automaticamente."}
+              {fileName ? <>Arquivo: <span className="font-medium text-foreground">{fileName}</span></> : "Envie o extrato do internet banking (PDF), planilha (CSV) ou um print/screenshot — o banco será identificado automaticamente."}
               {(bank || parsed?.bank_hint) && <> · Detectado: <span className="font-medium">{bank || parsed?.bank_hint}</span></>}
             </p>
           </div>
           <input
             ref={inputRef}
             type="file"
-            accept="application/pdf,text/csv,.csv"
+            accept="application/pdf,text/csv,.csv,image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -221,7 +214,7 @@ setParsed(p);
           />
           <Button onClick={() => inputRef.current?.click()} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            {loading ? "Processando..." : "Selecionar PDF"}
+            {loading ? "Processando..." : "Selecionar extrato"}
           </Button>
         </div>
       </Card>
