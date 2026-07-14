@@ -58,6 +58,8 @@ export function parseRedeCsv(csv: string): ParsedStatement {
           ? "cartao_debito"
           : "cartao_credito",
 
+      balance: 0,
+
     });
 
   }
