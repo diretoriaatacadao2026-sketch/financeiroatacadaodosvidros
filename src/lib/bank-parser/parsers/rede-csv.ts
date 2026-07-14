@@ -21,6 +21,7 @@ export function parseRedeCsv(csv: string): ParsedStatement {
   const idxValor = header.indexOf("valor da venda original");
   const idxModalidade = header.indexOf("modalidade");
   const idxNSU = header.indexOf("NSU/CV");
+  const idxStatus = header.indexOf("status da venda");
 
   if (
     idxData === -1 ||
@@ -39,6 +40,13 @@ export function parseRedeCsv(csv: string): ParsedStatement {
     const data = col[idxData];
 
     if (!data) continue;
+
+    // Ignora vendas que não viraram dinheiro de fato (expiradas, canceladas,
+    // negadas), senão a conciliação nunca bate com o que realmente caiu no banco.
+    if (idxStatus !== -1) {
+      const status = (col[idxStatus] || "").toLowerCase().trim();
+      if (status && !/^(pago|aprovad)/.test(status)) continue;
+    }
 
     items.push({
 
