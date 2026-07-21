@@ -34,6 +34,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { brl, dateBR, PAYMENT_METHODS } from "@/lib/format";
 import { useUserNames } from "@/lib/use-user-names";
+import { CashClosingImportDialog } from "@/components/CashClosingImportDialog";
 import { Plus, ArrowUpRight, ArrowDownRight, Trash2, Lock, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -206,7 +207,19 @@ function CaixaPage() {
           <h1 className="text-2xl font-bold tracking-tight">Fechamento de Caixa</h1>
           <p className="text-sm text-muted-foreground">Movimente entradas e saídas por empresa e conta.</p>
         </div>
-        {canWrite && <NewTransactionDialog companies={base.companies} accounts={base.accounts} />}
+        <div className="flex items-center gap-2">
+          {canWrite && (
+            <CashClosingImportDialog
+              companies={base.companies}
+              accounts={base.accounts}
+              onImported={() => {
+                qc.invalidateQueries({ queryKey: ["caixa-tx"] });
+                qc.invalidateQueries({ queryKey: ["dashboard-data"] });
+              }}
+            />
+          )}
+          {canWrite && <NewTransactionDialog companies={base.companies} accounts={base.accounts} />}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -614,4 +627,3 @@ function SupplyCard({
     </div>
   );
 }
-
