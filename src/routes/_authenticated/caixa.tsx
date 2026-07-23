@@ -109,6 +109,20 @@ const closingsQuery = (date: string) => queryOptions({
   },
 });
 
+// Todos os fechamentos (sem filtro de data), usados para travar edição/exclusão
+// de qualquer lançamento cujo dia já esteja fechado, independente do filtro
+// de data usado na seção "Status do Caixa por Empresa".
+const allClosingsQuery = queryOptions({
+  queryKey: ["caixa-closings-all"],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("cash_closings" as never)
+      .select("id, company_id, closing_date");
+    if (error) throw error;
+    return (data ?? []) as unknown as Pick<Closing, "id" | "company_id" | "closing_date">[];
+  },
+});
+
 const txQuery = (companyId: string | "all") =>
 
   queryOptions({
@@ -139,7 +153,14 @@ function CaixaPage() {
   const { data: tx } = useSuspenseQuery(txQuery(companyFilter));
   const { data: supplies } = useSuspenseQuery(suppliesQuery(supplyDate));
   const { data: closings } = useSuspenseQuery(closingsQuery(supplyDate));
+  const { data: allClosings } = useSuspenseQuery(allClosingsQuery);
   const qc = useQueryClient();
+
+  const closedDaySet = useMemo(
+    () => new Set(allClosings.map((c) => `${c.company_id}|${c.closing_date}`)),
+    [allClosings]
+  );
+  const isDayLocked = (companyId: string, txDate: string) => closedDaySet.has(`${companyId}|${txDate}`);
 
 
   const totals = useMemo(() => {
@@ -412,9 +433,15 @@ function CaixaPage() {
                     <TableCell className="text-xs text-muted-foreground">{userName(t.created_by)}</TableCell>
                     <TableCell>
                       {canDelete && (
-                        <Button variant="ghost" size="icon" onClick={() => onDelete(t.id)}>
-                          <Trash2 className="h-4 w-4 text-muted-foreground" />
-                        </Button>
+                        isDayLocked(t.company_id, t.tx_date) ? (
+                          <Button variant="ghost" size="icon" disabled title="Caixa fechado — reabra o dia para excluir">
+                            <Lock className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        ) : (
+                          <Button variant="ghost" size="icon" onClick={() => onDelete(t.id)}>
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        )
                       )}
                     </TableCell>
                   </TableRow>
