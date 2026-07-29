@@ -81,19 +81,29 @@ function ConciliacaoPage() {
     const used = new Set<string>();
     return items.map((it) => {
       const wantType = it.direction === "credit" ? "entrada" : "saida";
-      // Score candidates: same value & direction is required; +2 for payment_method match
-      const scored = txs
-        .filter((t) => !used.has(t.id) && t.tx_type === wantType && Math.abs(Number(t.amount) - it.amount) < 0.01)
-        .map((t) => ({
-          t,
-          score: (it.inferred_payment_method && t.payment_method === it.inferred_payment_method) ? 2 : 1,
-        }))
-        .sort((a, b) => b.score - a.score);
-      if (scored.length > 0) {
-        used.add(scored[0].t.id);
-        return { ...it, matched_tx_id: scored[0].t.id, status: "matched" as MatchStatus };
+      const sameAmountType = txs.filter(
+        (t) => !used.has(t.id) && t.tx_type === wantType && Math.abs(Number(t.amount) - it.amount) < 0.01
+      );
+
+      // "Confere": valor + tipo + forma de pagamento batendo juntos.
+      // Se não sabemos a forma de pagamento do extrato (inferred_payment_method
+      // nulo), não dá pra exigir — nesse caso valor+tipo já bastam.
+      const exactMatch = it.inferred_payment_method
+        ? sameAmountType.find((t) => t.payment_method === it.inferred_payment_method)
+        : sameAmountType[0];
+
+      if (exactMatch) {
+        used.add(exactMatch.id);
+        return { ...it, matched_tx_id: exactMatch.id, status: "matched" as MatchStatus };
       }
-      // Divergent: value matches but direction wrong, OR close value
+
+      // Valor e tipo batem, mas a forma de pagamento é diferente — mostra como
+      // divergente em vez de aplicar automaticamente como conciliado.
+      if (sameAmountType.length > 0) {
+        return { ...it, matched_tx_id: sameAmountType[0].id, status: "divergent" as MatchStatus };
+      }
+
+      // Divergent: valor bate mas direção errada, ou valor próximo
       const wrongDir = txs.find((t) => !used.has(t.id) && Math.abs(Number(t.amount) - it.amount) < 0.01);
       if (wrongDir) return { ...it, matched_tx_id: wrongDir.id, status: "divergent" as MatchStatus };
       const close = txs.find((t) => !used.has(t.id) && Math.abs(Number(t.amount) - it.amount) < 1);
@@ -179,7 +189,7 @@ function ConciliacaoPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Conciliação Bancária</h1>
-          <p className="text-sm text-muted-foreground">Envie o extrato do banco (PDF, CSV ou print/screenshot) — o banco será identificado automaticamente e a conciliação será feita com o valor bruto.</p>
+          <p className="text-sm text-muted-foreground">Envie o extrato do banco (PDF) — o banco será identificado automaticamente e a conciliação será feita.</p>
         </div>
         <div>
           <Label htmlFor="cdate" className="text-xs">Data</Label>
