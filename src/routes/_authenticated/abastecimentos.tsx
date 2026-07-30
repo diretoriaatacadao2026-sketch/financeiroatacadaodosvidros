@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery, useQueryClient, queryOptions } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery, useQueryClient, queryOptions } from "@tanstack/react-query";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,7 @@ interface Refuel {
 interface FuelCredit {
   id: string; company_id: string; provider_id: string | null; provider_name: string;
   cnpj: string | null; amount: number; paid_date: string; notes: string | null;
-  created_by: string | null;
+  created_by: string | null; closed_at: string | null;
 }
 
 const FUEL_TYPES = [
@@ -73,7 +73,7 @@ const baseDataQuery = queryOptions({
       supabase.from("vehicles").select("id, company_id, plate, model, active").order("plate"),
       supabase.from("fuel_providers").select("id, company_id, name, active").order("name"),
       (supabase.from("fuel_credits" as never) as never as { select: (q: string) => Promise<{ data: FuelCredit[] | null; error: Error | null }> })
-        .select("id, company_id, provider_id, provider_name, cnpj, amount, paid_date, notes, created_by"),
+        .select("id, company_id, provider_id, provider_name, cnpj, amount, paid_date, notes, created_by, closed_at"),
     ]);
     if (vehiclesRes.error) throw vehiclesRes.error;
     if (providersRes.error) throw providersRes.error;
@@ -174,7 +174,18 @@ function AbastecimentosPage() {
     () => filters.companyId === "all" ? creditBalances : creditBalances.filter(c => c.credit.company_id === filters.companyId),
     [creditBalances, filters.companyId],
   );
-  const totalCreditBalance = creditsFiltered.reduce((s, c) => s + c.balance, 0);
+  const openCredits = useMemo(
+    () => creditsFiltered.filter(c => !c.credit.closed_at),
+    [creditsFiltered],
+  );
+  const closedCredits = useMemo(
+    () => creditsFiltered
+      .filter(c => c.credit.closed_at)
+      .sort((a, b) => (b.credit.closed_at ?? "").localeCompare(a.credit.closed_at ?? "")),
+    [creditsFiltered],
+  );
+  const totalCreditBalance = openCredits.reduce((s, c) => s + c.balance, 0);
+  const [selectedClosedCredit, setSelectedClosedCredit] = useState<FuelCredit | null>(null);
 
   const deleteRefuel = async (id: string) => {
     if (!confirm("Excluir este abastecimento?")) return;
@@ -279,7 +290,7 @@ function AbastecimentosPage() {
         </Card>
       </div>
 
-      {creditsFiltered.length > 0 && (
+      {openCredits.length > 0 && (
         <Card className="overflow-hidden">
           <div className="flex items-center gap-2 border-b p-4">
             <Wallet className="h-4 w-4 text-primary" />
@@ -301,7 +312,7 @@ function AbastecimentosPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {creditsFiltered.map(({ credit, used, balance }) => {
+                {openCredits.map(({ credit, used, balance }) => {
                   const comp = base.companies.find(c => c.id === credit.company_id);
                   return (
                     <TableRow key={credit.id}>
@@ -330,6 +341,70 @@ function AbastecimentosPage() {
           </div>
         </Card>
       )}
+
+      {closedCredits.length > 0 && (
+        <Card className="overflow-hidden">
+          <div className="flex items-center gap-2 border-b p-4">
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <h3 className="font-semibold">Créditos Fechados</h3>
+            <span className="text-xs text-muted-foreground">(saldo zerado — clique para ver os abastecimentos)</span>
+          </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Período</TableHead>
+                  <TableHead>Empresa</TableHead>
+                  <TableHead>Posto</TableHead>
+                  <TableHead className="text-right">Valor do crédito</TableHead>
+                  <TableHead>Registrado por</TableHead>
+                  <TableHead className="w-10" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {closedCredits.map(({ credit }) => {
+                  const comp = base.companies.find(c => c.id === credit.company_id);
+                  return (
+                    <TableRow
+                      key={credit.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setSelectedClosedCredit(credit)}
+                    >
+                      <TableCell className="text-sm">
+                        {dateBR(credit.paid_date)} — {credit.closed_at ? dateBR(credit.closed_at) : "—"}
+                        <Badge variant="secondary" className="ml-2 font-normal">Fechado</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">{comp?.name ?? "—"}</TableCell>
+                      <TableCell className="text-sm font-medium">{credit.provider_name}</TableCell>
+                      <TableCell className="text-right text-sm">{brl(Number(credit.amount))}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{userName(credit.created_by)}</TableCell>
+                      <TableCell>
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => { e.stopPropagation(); deleteCredit(credit.id); }}
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      )}
+
+      <ClosedCreditDetailsDialog
+        credit={selectedClosedCredit}
+        company={selectedClosedCredit ? base.companies.find(c => c.id === selectedClosedCredit.company_id) ?? null : null}
+        vehicles={base.vehicles}
+        providers={base.providers}
+        onOpenChange={(open) => { if (!open) setSelectedClosedCredit(null); }}
+      />
 
       <Card className="overflow-hidden">
         <div className="flex items-center gap-2 border-b p-4">
@@ -399,6 +474,117 @@ function AbastecimentosPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+function ClosedCreditDetailsDialog({
+  credit, company, vehicles, providers, onOpenChange,
+}: {
+  credit: FuelCredit | null;
+  company: Company | null;
+  vehicles: Vehicle[];
+  providers: Provider[];
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { display: userName } = useUserNames();
+
+  const { data: refuels, isLoading } = useQuery({
+    queryKey: ["abastecimentos", "credit-history", credit?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fuel_refuels")
+        .select("id, vehicle_id, provider_id, refuel_date, fuel_type, liters, price_per_liter, total_amount, odometer, driver_name, notes, requisition_number, created_by")
+        .eq("credit_id", credit!.id)
+        .order("refuel_date", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Refuel[];
+    },
+    enabled: !!credit,
+  });
+
+  const total = (refuels ?? []).reduce((s, r) => s + Number(r.total_amount), 0);
+
+  return (
+    <Dialog open={!!credit} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            Crédito fechado — {credit?.provider_name}
+          </DialogTitle>
+        </DialogHeader>
+        {credit && (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-4 text-sm">
+              <div>
+                <div className="text-muted-foreground">Empresa</div>
+                <div className="font-medium">{company?.name ?? "—"}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Aberto em</div>
+                <div className="font-medium">{dateBR(credit.paid_date)}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Fechado em</div>
+                <div className="font-medium">{credit.closed_at ? dateBR(credit.closed_at) : "—"}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Valor do crédito</div>
+                <div className="font-medium">{brl(Number(credit.amount))}</div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Veículo</TableHead>
+                    <TableHead>Prestador</TableHead>
+                    <TableHead className="text-right">Litros</TableHead>
+                    <TableHead className="text-right">R$/L</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>Requisição</TableHead>
+                    <TableHead>Registrado por</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading && (
+                    <TableRow><TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+                  )}
+                  {!isLoading && (refuels ?? []).length === 0 && (
+                    <TableRow><TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Nenhum abastecimento encontrado.</TableCell></TableRow>
+                  )}
+                  {(refuels ?? []).map((r) => {
+                    const v = vehicles.find(x => x.id === r.vehicle_id);
+                    const p = providers.find(x => x.id === r.provider_id);
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell className="text-sm">{dateBR(r.refuel_date)}</TableCell>
+                        <TableCell className="text-sm font-medium">{v?.plate ?? "—"}</TableCell>
+                        <TableCell className="text-sm">{p?.name ?? "—"}</TableCell>
+                        <TableCell className="text-right text-sm">{Number(r.liters).toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-sm">{brl(Number(r.price_per_liter))}</TableCell>
+                        <TableCell className="text-right text-sm font-medium">{brl(Number(r.total_amount))}</TableCell>
+                        <TableCell className="text-sm">{r.requisition_number ?? "—"}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{userName(r.created_by)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm flex items-center justify-between">
+              <span>Total consumido: <span className="font-semibold">{brl(total)}</span></span>
+              <span className="text-muted-foreground">{(refuels ?? []).length} abastecimento(s)</span>
+            </div>
+          </div>
+        )}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -653,7 +839,7 @@ function NewRefuelDialog({
   const companyVehicles = companyId ? vehicles.filter(v => v.company_id === companyId) : [];
   const companyProviders = companyId ? providers.filter(p => p.company_id === companyId) : [];
   const availableCredits = companyId
-    ? credits.filter(c => c.credit.company_id === companyId && c.balance > 0 &&
+    ? credits.filter(c => c.credit.company_id === companyId && !c.credit.closed_at && c.balance > 0 &&
         (providerId === "none" || !c.credit.provider_id || c.credit.provider_id === providerId))
     : [];
 
