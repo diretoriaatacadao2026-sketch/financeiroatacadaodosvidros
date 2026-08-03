@@ -352,6 +352,7 @@ export type Database = {
       fuel_credits: {
         Row: {
           amount: number
+          closed_at: string | null
           cnpj: string | null
           company_id: string
           created_at: string
@@ -366,6 +367,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          closed_at?: string | null
           cnpj?: string | null
           company_id: string
           created_at?: string
@@ -380,6 +382,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          closed_at?: string | null
           cnpj?: string | null
           company_id?: string
           created_at?: string
@@ -790,6 +793,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      recalc_fuel_credit_closed: {
+        Args: { _credit_id: string }
+        Returns: undefined
       }
       user_can_access_company: {
         Args: { _company_id: string }
