@@ -352,7 +352,6 @@ export type Database = {
       fuel_credits: {
         Row: {
           amount: number
-          closed_at: string | null
           cnpj: string | null
           company_id: string
           created_at: string
@@ -367,7 +366,6 @@ export type Database = {
         }
         Insert: {
           amount: number
-          closed_at?: string | null
           cnpj?: string | null
           company_id: string
           created_at?: string
@@ -382,7 +380,6 @@ export type Database = {
         }
         Update: {
           amount?: number
-          closed_at?: string | null
           cnpj?: string | null
           company_id?: string
           created_at?: string
