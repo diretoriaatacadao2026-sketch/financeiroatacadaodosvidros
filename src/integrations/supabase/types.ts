@@ -794,6 +794,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      recalc_fuel_credit_closed: {
+        Args: { _credit_id: string }
+        Returns: undefined
+      }
       user_can_access_company: {
         Args: { _company_id: string }
         Returns: boolean
