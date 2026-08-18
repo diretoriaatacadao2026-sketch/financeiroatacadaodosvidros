@@ -1,9 +1,27 @@
-import * as pdfjs from "pdfjs-dist";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - worker as URL
-import workerSrc from "pdfjs-dist/build/pdf.worker.mjs?url";
+// pdfjs-dist touches browser-only globals (DOMMatrix) at import time,
+// so it must never be loaded during SSR — load it lazily in the browser.
+type PdfjsModule = typeof import("pdfjs-dist");
 
-(pdfjs as unknown as { GlobalWorkerOptions: { workerSrc: string } }).GlobalWorkerOptions.workerSrc = workerSrc;
+let pdfjsPromise: Promise<PdfjsModule> | null = null;
+
+async function loadPdfjs(): Promise<PdfjsModule> {
+  if (typeof window === "undefined") {
+    throw new Error("PDF parsing is only available in the browser");
+  }
+  if (!pdfjsPromise) {
+    pdfjsPromise = (async () => {
+      const pdfjs = await import("pdfjs-dist");
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore - worker as URL
+      const workerSrc = (await import("pdfjs-dist/build/pdf.worker.mjs?url")).default;
+      (pdfjs as unknown as { GlobalWorkerOptions: { workerSrc: string } }).GlobalWorkerOptions.workerSrc =
+        workerSrc as string;
+      return pdfjs;
+    })();
+  }
+  return pdfjsPromise;
+}
+
 
 interface TextItem {
   str: string;
