@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { extractPdfText } from "@/lib/bank-parser/extractor";
 export const Route = createFileRoute("/teste-parser")({
   ssr: false,
   component: TesteParser,
@@ -15,6 +14,7 @@ function TesteParser() {
     if (!file) return;
     setLoading(true);
     try {
+      const { extractPdfText } = await import("@/lib/bank-parser/extractor");
       const resultado = await extractPdfText(file);
       setTexto(resultado);
       console.log(resultado);
