@@ -150,12 +150,13 @@ function Dashboard() {
   for (let i = 0; i < startWeekday; i++) cells.push({ date: null, iso: null });
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = new Date(first.getFullYear(), first.getMonth(), d);
-    cells.push({ date: dt, iso: dt.toISOString().slice(0, 10) });
+    cells.push({ date: dt, iso: isoLocal(dt) });
   }
   while (cells.length % 7 !== 0) cells.push({ date: null, iso: null });
 
   const monthLabel = cursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayISO = isoLocal(new Date());
+
 
   const prevMonth = () => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
   const nextMonth = () => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1));
