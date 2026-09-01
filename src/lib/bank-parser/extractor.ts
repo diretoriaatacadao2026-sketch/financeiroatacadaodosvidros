@@ -72,6 +72,8 @@ export async function extractPdfText(file: File): Promise<string> {
 
   const buffer = await file.arrayBuffer();
 
+  const pdfjs = await loadPdfjs();
+
   const pdf = await pdfjs.getDocument({
     data: buffer,
   }).promise;
