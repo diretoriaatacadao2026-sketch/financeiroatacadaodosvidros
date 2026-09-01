@@ -33,6 +33,9 @@ interface Closing { company_id: string; closing_date: string }
 
 const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
+const isoLocal = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 const monthDataQuery = (month: string, companyFilter: string) =>
   queryOptions({
     queryKey: ["dashboard-month", month, companyFilter],
@@ -40,31 +43,40 @@ const monthDataQuery = (month: string, companyFilter: string) =>
       const [y, m] = month.split("-").map(Number);
       const first = new Date(y, m - 1, 1);
       const last = new Date(y, m, 0);
-      const startISO = first.toISOString().slice(0, 10);
-      const endISO = last.toISOString().slice(0, 10);
+      const startISO = isoLocal(first);
+      const endISO = isoLocal(last);
 
-      let txQ = supabase
-        .from("cash_transactions")
-        .select("id, tx_date, amount, tx_type, company_id")
-        .gte("tx_date", startISO)
-        .lte("tx_date", endISO);
-      if (companyFilter !== "all") txQ = txQ.eq("company_id", companyFilter);
+      const txPromise = fetchAllRows<TxRow>(() => {
+        let q = supabase
+          .from("cash_transactions")
+          .select("id, tx_date, amount, tx_type, company_id")
+          .gte("tx_date", startISO)
+          .lte("tx_date", endISO)
+          .order("tx_date", { ascending: true })
+          .order("id", { ascending: true });
+        if (companyFilter !== "all") q = q.eq("company_id", companyFilter);
+        return q as never;
+      });
 
-      let clQ = supabase
-        .from("cash_closings" as never)
-        .select("company_id, closing_date")
-        .gte("closing_date", startISO)
-        .lte("closing_date", endISO);
-      if (companyFilter !== "all") clQ = clQ.eq("company_id", companyFilter);
+      const clPromise = fetchAllRows<Closing>(() => {
+        let q = supabase
+          .from("cash_closings" as never)
+          .select("company_id, closing_date")
+          .gte("closing_date", startISO)
+          .lte("closing_date", endISO)
+          .order("closing_date", { ascending: true });
+        if (companyFilter !== "all") q = q.eq("company_id", companyFilter);
+        return q as never;
+      });
 
-      const [{ data: tx }, { data: closings }, { data: companies }] = await Promise.all([
-        txQ,
-        clQ,
+      const [tx, closings, { data: companies }] = await Promise.all([
+        txPromise,
+        clPromise,
         supabase.from("companies").select("id, name").order("name"),
       ]);
       return {
-        tx: (tx ?? []) as TxRow[],
-        closings: ((closings ?? []) as unknown) as Closing[],
+        tx,
+        closings,
         companies: (companies ?? []) as Company[],
         month,
         first,
@@ -72,6 +84,7 @@ const monthDataQuery = (month: string, companyFilter: string) =>
       };
     },
   });
+
 
 function DashboardWrapper() {
   return (
