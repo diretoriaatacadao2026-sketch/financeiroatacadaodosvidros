@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
+import { fetchAllRows } from "@/lib/fetch-all";
+
 import { ChevronLeft, ChevronRight, Lock, Unlock, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
