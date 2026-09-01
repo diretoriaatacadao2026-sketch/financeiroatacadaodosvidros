@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { brl, dateBR, PAYMENT_METHODS, FUEL_PAYMENT_METHODS } from "@/lib/format";
+import { fetchAllRows } from "@/lib/fetch-all";
+
 import { Printer, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
