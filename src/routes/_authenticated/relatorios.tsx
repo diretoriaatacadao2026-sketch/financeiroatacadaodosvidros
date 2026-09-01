@@ -185,15 +185,21 @@ function RelFinanceiro({ start, end, companyId }: { start: string; end: string; 
   const { data: raw } = useSuspenseQuery({
     queryKey: ["rel-fin", start, end, companyId],
     queryFn: async () => {
-      let q = supabase
-        .from("cash_transactions")
-        .select("id, tx_date, client_name, budget_number, description, amount, payment_method, tx_type, company_id, account_id")
-        .gte("tx_date", start).lte("tx_date", end)
-        .order("tx_date", { ascending: true });
-      if (companyId !== "all") q = q.eq("company_id", companyId);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data ?? [];
+      return await fetchAllRows<{
+        id: string; tx_date: string; client_name: string | null; budget_number: string | null;
+        description: string; amount: number; payment_method: string; tx_type: "entrada" | "saida";
+        company_id: string; account_id: string;
+      }>(() => {
+        let q = supabase
+          .from("cash_transactions")
+          .select("id, tx_date, client_name, budget_number, description, amount, payment_method, tx_type, company_id, account_id")
+          .gte("tx_date", start).lte("tx_date", end)
+          .order("tx_date", { ascending: true })
+          .order("id", { ascending: true });
+        if (companyId !== "all") q = q.eq("company_id", companyId);
+        return q as never;
+      });
+
     },
   });
   const data = useMemo(
