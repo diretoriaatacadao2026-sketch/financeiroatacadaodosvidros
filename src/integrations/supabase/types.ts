@@ -352,6 +352,8 @@ export type Database = {
       fuel_credits: {
         Row: {
           amount: number
+          carry_amount: number
+          carry_from_credit_id: string | null
           closed_at: string | null
           cnpj: string | null
           company_id: string
@@ -367,6 +369,8 @@ export type Database = {
         }
         Insert: {
           amount: number
+          carry_amount?: number
+          carry_from_credit_id?: string | null
           closed_at?: string | null
           cnpj?: string | null
           company_id: string
@@ -382,6 +386,8 @@ export type Database = {
         }
         Update: {
           amount?: number
+          carry_amount?: number
+          carry_from_credit_id?: string | null
           closed_at?: string | null
           cnpj?: string | null
           company_id?: string
@@ -396,6 +402,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fuel_credits_carry_from_credit_id_fkey"
+            columns: ["carry_from_credit_id"]
+            isOneToOne: false
+            referencedRelation: "fuel_credits"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fuel_credits_company_id_fkey"
             columns: ["company_id"]
