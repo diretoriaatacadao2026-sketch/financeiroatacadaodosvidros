@@ -484,6 +484,69 @@ function AbastecimentosPage() {
   );
 }
 
+function CloseCreditDialog({
+  credit, balance, onOpenChange,
+}: { credit: FuelCredit | null; balance: number; onOpenChange: (open: boolean) => void }) {
+  const qc = useQueryClient();
+  const [closingDate, setClosingDate] = useState(today());
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { if (credit) setClosingDate(today()); }, [credit]);
+
+  const onConfirm = async () => {
+    if (!credit) return;
+    if (!closingDate) return toast.error("Informe a data do fechamento");
+    setLoading(true);
+    // Abastecimentos lançados depois da data de fechamento deixam de consumir este crédito
+    const { error: unlinkError } = await supabase
+      .from("fuel_refuels")
+      .update({ credit_id: null } as never)
+      .eq("credit_id", credit.id)
+      .gt("refuel_date", closingDate);
+    if (unlinkError) { setLoading(false); return toast.error(unlinkError.message); }
+
+    const { error } = await (supabase.from("fuel_credits" as never) as never as {
+      update: (v: unknown) => { eq: (c: string, v: string) => Promise<{ error: Error | null }> };
+    }).update({ closed_at: `${closingDate}T23:59:59` }).eq("id", credit.id);
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Crédito fechado");
+    qc.invalidateQueries({ queryKey: ["abastecimentos"] });
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={!!credit} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Fechar crédito — {credit?.provider_name}</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            O fechamento considera todos os abastecimentos debitados deste crédito até a data escolhida.
+            Lançamentos posteriores a essa data deixam de consumir este crédito.
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="closing_date">Data do fechamento</Label>
+            <Input id="closing_date" type="date" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} />
+          </div>
+          <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm flex items-center justify-between">
+            <span>Saldo atual</span>
+            <span className={`font-semibold ${balance < 0 ? "text-destructive" : "text-[color:var(--success)]"}`}>{brl(balance)}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Depois de fechar, este saldo pode ser somado a um novo crédito antecipado no momento do cadastro.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button type="button" onClick={onConfirm} disabled={loading}>
+            {loading ? "Fechando..." : "Confirmar fechamento"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ClosedCreditDetailsDialog({
   credit, company, vehicles, providers, onOpenChange,
 }: {
