@@ -47,6 +47,7 @@ interface FuelCredit {
   id: string; company_id: string; provider_id: string | null; provider_name: string;
   cnpj: string | null; amount: number; paid_date: string; notes: string | null;
   created_by: string | null; closed_at: string | null;
+  carry_from_credit_id: string | null; carry_amount: number;
 }
 
 const FUEL_TYPES = [
@@ -59,21 +60,20 @@ const FUEL_TYPES = [
 ];
 
 const today = () => new Date().toISOString().slice(0, 10);
-const daysAgo = (n: number) => {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
-};
 
 const baseDataQuery = queryOptions({
   queryKey: ["abastecimentos", "base"],
   queryFn: async () => {
-    const [companiesRes, vehiclesRes, providersRes, creditsRes] = await Promise.all([
+    const [companiesRes, vehiclesRes, providersRes, creditsRes, usageRes] = await Promise.all([
       supabase.from("companies").select("id, name").order("name"),
       supabase.from("vehicles").select("id, company_id, plate, model, active").order("plate"),
       supabase.from("fuel_providers").select("id, company_id, name, active").order("name"),
       (supabase.from("fuel_credits" as never) as never as { select: (q: string) => Promise<{ data: FuelCredit[] | null; error: Error | null }> })
-        .select("id, company_id, provider_id, provider_name, cnpj, amount, paid_date, notes, created_by, closed_at"),
+        .select("id, company_id, provider_id, provider_name, cnpj, amount, paid_date, notes, created_by, closed_at, carry_from_credit_id, carry_amount"),
+      supabase.from("fuel_refuels")
+        .select("credit_id, total_amount")
+        .not("credit_id", "is", null)
+        .limit(5000),
     ]);
     if (vehiclesRes.error) throw vehiclesRes.error;
     if (providersRes.error) throw providersRes.error;
@@ -82,6 +82,7 @@ const baseDataQuery = queryOptions({
       vehicles: (vehiclesRes.data ?? []) as Vehicle[],
       providers: (providersRes.data ?? []) as Provider[],
       credits: (creditsRes.data ?? []) as FuelCredit[],
+      creditUsage: (usageRes.data ?? []) as { credit_id: string | null; total_amount: number }[],
     };
   },
 });
@@ -90,8 +91,6 @@ interface Filters {
   companyId: string;
   vehicleId: string;
   providerId: string;
-  from: string;
-  to: string;
 }
 
 const refuelsQuery = (f: Filters) => queryOptions({
@@ -100,8 +99,6 @@ const refuelsQuery = (f: Filters) => queryOptions({
     let q = supabase
       .from("fuel_refuels")
       .select("id, company_id, vehicle_id, provider_id, refuel_date, fuel_type, liters, price_per_liter, total_amount, odometer, driver_name, notes, payment_method, requisition_number, credit_id, created_by")
-      .gte("refuel_date", f.from)
-      .lte("refuel_date", f.to)
       .order("refuel_date", { ascending: false })
       .limit(1000);
     if (f.companyId !== "all") q = q.eq("company_id", f.companyId);
