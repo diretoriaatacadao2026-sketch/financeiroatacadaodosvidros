@@ -20,7 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { brl, dateBR, FUEL_PAYMENT_METHODS } from "@/lib/format";
 import { useUserNames } from "@/lib/use-user-names";
-import { Fuel, Plus, Trash2, Truck, Building2, Wallet } from "lucide-react";
+import { Fuel, Plus, Trash2, Truck, Building2, Wallet, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/abastecimentos")({
@@ -47,6 +47,7 @@ interface FuelCredit {
   id: string; company_id: string; provider_id: string | null; provider_name: string;
   cnpj: string | null; amount: number; paid_date: string; notes: string | null;
   created_by: string | null; closed_at: string | null;
+  carry_from_credit_id: string | null; carry_amount: number;
 }
 
 const FUEL_TYPES = [
@@ -59,21 +60,20 @@ const FUEL_TYPES = [
 ];
 
 const today = () => new Date().toISOString().slice(0, 10);
-const daysAgo = (n: number) => {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
-};
 
 const baseDataQuery = queryOptions({
   queryKey: ["abastecimentos", "base"],
   queryFn: async () => {
-    const [companiesRes, vehiclesRes, providersRes, creditsRes] = await Promise.all([
+    const [companiesRes, vehiclesRes, providersRes, creditsRes, usageRes] = await Promise.all([
       supabase.from("companies").select("id, name").order("name"),
       supabase.from("vehicles").select("id, company_id, plate, model, active").order("plate"),
       supabase.from("fuel_providers").select("id, company_id, name, active").order("name"),
       (supabase.from("fuel_credits" as never) as never as { select: (q: string) => Promise<{ data: FuelCredit[] | null; error: Error | null }> })
-        .select("id, company_id, provider_id, provider_name, cnpj, amount, paid_date, notes, created_by, closed_at"),
+        .select("id, company_id, provider_id, provider_name, cnpj, amount, paid_date, notes, created_by, closed_at, carry_from_credit_id, carry_amount"),
+      supabase.from("fuel_refuels")
+        .select("credit_id, total_amount")
+        .not("credit_id", "is", null)
+        .limit(5000),
     ]);
     if (vehiclesRes.error) throw vehiclesRes.error;
     if (providersRes.error) throw providersRes.error;
@@ -82,6 +82,7 @@ const baseDataQuery = queryOptions({
       vehicles: (vehiclesRes.data ?? []) as Vehicle[],
       providers: (providersRes.data ?? []) as Provider[],
       credits: (creditsRes.data ?? []) as FuelCredit[],
+      creditUsage: (usageRes.data ?? []) as { credit_id: string | null; total_amount: number }[],
     };
   },
 });
@@ -90,8 +91,6 @@ interface Filters {
   companyId: string;
   vehicleId: string;
   providerId: string;
-  from: string;
-  to: string;
 }
 
 const refuelsQuery = (f: Filters) => queryOptions({
@@ -100,8 +99,6 @@ const refuelsQuery = (f: Filters) => queryOptions({
     let q = supabase
       .from("fuel_refuels")
       .select("id, company_id, vehicle_id, provider_id, refuel_date, fuel_type, liters, price_per_liter, total_amount, odometer, driver_name, notes, payment_method, requisition_number, credit_id, created_by")
-      .gte("refuel_date", f.from)
-      .lte("refuel_date", f.to)
       .order("refuel_date", { ascending: false })
       .limit(1000);
     if (f.companyId !== "all") q = q.eq("company_id", f.companyId);
@@ -124,8 +121,6 @@ function AbastecimentosPage() {
     companyId: "all",
     vehicleId: "all",
     providerId: "all",
-    from: daysAgo(30),
-    to: today(),
   });
 
   const { data: base } = useSuspenseQuery(baseDataQuery);
@@ -158,17 +153,17 @@ function AbastecimentosPage() {
   }, [refuels]);
 
   const creditBalances = useMemo(() => {
-    // For every credit: balance = amount - sum of refuels where credit_id = this.id
+    // Saldo = (valor do crédito + saldo transportado) - tudo que já foi debitado dele
     const usedByCredit = new Map<string, number>();
-    refuels.forEach((r) => {
+    base.creditUsage.forEach((r) => {
       if (r.credit_id) usedByCredit.set(r.credit_id, (usedByCredit.get(r.credit_id) ?? 0) + Number(r.total_amount));
     });
-    return base.credits.map((c) => ({
-      credit: c,
-      used: usedByCredit.get(c.id) ?? 0,
-      balance: Number(c.amount) - (usedByCredit.get(c.id) ?? 0),
-    }));
-  }, [base.credits, refuels]);
+    return base.credits.map((c) => {
+      const used = usedByCredit.get(c.id) ?? 0;
+      const total = Number(c.amount) + Number(c.carry_amount ?? 0);
+      return { credit: c, used, total, balance: total - used };
+    });
+  }, [base.credits, base.creditUsage]);
 
   const creditsFiltered = useMemo(
     () => filters.companyId === "all" ? creditBalances : creditBalances.filter(c => c.credit.company_id === filters.companyId),
@@ -186,6 +181,7 @@ function AbastecimentosPage() {
   );
   const totalCreditBalance = openCredits.reduce((s, c) => s + c.balance, 0);
   const [selectedClosedCredit, setSelectedClosedCredit] = useState<FuelCredit | null>(null);
+  const [creditToClose, setCreditToClose] = useState<FuelCredit | null>(null);
 
   const deleteRefuel = async (id: string) => {
     if (!confirm("Excluir este abastecimento?")) return;
@@ -221,7 +217,7 @@ function AbastecimentosPage() {
       </div>
 
       <Card className="p-4">
-        <div className="grid gap-3 md:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Empresa</Label>
             <Select value={filters.companyId} onValueChange={(v) => setFilters(f => ({ ...f, companyId: v }))}>
@@ -254,16 +250,9 @@ function AbastecimentosPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">De</Label>
-            <Input type="date" value={filters.from} onChange={(e) => setFilters(f => ({ ...f, from: e.target.value }))} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Até</Label>
-            <Input type="date" value={filters.to} onChange={(e) => setFilters(f => ({ ...f, to: e.target.value }))} />
-          </div>
         </div>
       </Card>
+
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card className="p-5">
@@ -305,10 +294,11 @@ function AbastecimentosPage() {
                   <TableHead>Posto</TableHead>
                   <TableHead>CNPJ</TableHead>
                   <TableHead className="text-right">Valor pago</TableHead>
+                  <TableHead className="text-right">Saldo transportado</TableHead>
                   <TableHead className="text-right">Consumido</TableHead>
                   <TableHead className="text-right">Saldo</TableHead>
                   <TableHead>Registrado por</TableHead>
-                  <TableHead className="w-10" />
+                  <TableHead className="w-28" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -321,22 +311,33 @@ function AbastecimentosPage() {
                       <TableCell className="text-sm font-medium">{credit.provider_name}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{credit.cnpj ?? "—"}</TableCell>
                       <TableCell className="text-right text-sm">{brl(Number(credit.amount))}</TableCell>
+                      <TableCell className="text-right text-sm text-muted-foreground">
+                        {Number(credit.carry_amount ?? 0) !== 0 ? brl(Number(credit.carry_amount)) : "—"}
+                      </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">{brl(used)}</TableCell>
-                      <TableCell className={`text-right text-sm font-semibold ${balance <= 0 ? "text-destructive" : "text-[color:var(--success)]"}`}>
+                      <TableCell className={`text-right text-sm font-semibold ${balance < 0 ? "text-destructive" : "text-[color:var(--success)]"}`}>
                         {brl(balance)}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{userName(credit.created_by)}</TableCell>
                       <TableCell>
-                        {canDelete && (
-                          <Button variant="ghost" size="icon" onClick={() => deleteCredit(credit.id)}>
-                            <Trash2 className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        )}
+                        <div className="flex items-center justify-end gap-1">
+                          {canManage && (
+                            <Button variant="outline" size="sm" onClick={() => setCreditToClose(credit)}>
+                              <Lock className="mr-1 h-3.5 w-3.5" /> Fechar
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button variant="ghost" size="icon" onClick={() => deleteCredit(credit.id)}>
+                              <Trash2 className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
                 })}
               </TableBody>
+
             </Table>
           </div>
         </Card>
@@ -404,6 +405,12 @@ function AbastecimentosPage() {
         vehicles={base.vehicles}
         providers={base.providers}
         onOpenChange={(open) => { if (!open) setSelectedClosedCredit(null); }}
+      />
+
+      <CloseCreditDialog
+        credit={creditToClose}
+        balance={creditToClose ? (creditBalances.find(c => c.credit.id === creditToClose.id)?.balance ?? 0) : 0}
+        onOpenChange={(open) => { if (!open) setCreditToClose(null); }}
       />
 
       <Card className="overflow-hidden">
@@ -474,6 +481,69 @@ function AbastecimentosPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+function CloseCreditDialog({
+  credit, balance, onOpenChange,
+}: { credit: FuelCredit | null; balance: number; onOpenChange: (open: boolean) => void }) {
+  const qc = useQueryClient();
+  const [closingDate, setClosingDate] = useState(today());
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { if (credit) setClosingDate(today()); }, [credit]);
+
+  const onConfirm = async () => {
+    if (!credit) return;
+    if (!closingDate) return toast.error("Informe a data do fechamento");
+    setLoading(true);
+    // Abastecimentos lançados depois da data de fechamento deixam de consumir este crédito
+    const { error: unlinkError } = await supabase
+      .from("fuel_refuels")
+      .update({ credit_id: null } as never)
+      .eq("credit_id", credit.id)
+      .gt("refuel_date", closingDate);
+    if (unlinkError) { setLoading(false); return toast.error(unlinkError.message); }
+
+    const { error } = await (supabase.from("fuel_credits" as never) as never as {
+      update: (v: unknown) => { eq: (c: string, v: string) => Promise<{ error: Error | null }> };
+    }).update({ closed_at: `${closingDate}T23:59:59` }).eq("id", credit.id);
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Crédito fechado");
+    qc.invalidateQueries({ queryKey: ["abastecimentos"] });
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={!!credit} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Fechar crédito — {credit?.provider_name}</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            O fechamento considera todos os abastecimentos debitados deste crédito até a data escolhida.
+            Lançamentos posteriores a essa data deixam de consumir este crédito.
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="closing_date">Data do fechamento</Label>
+            <Input id="closing_date" type="date" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} />
+          </div>
+          <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm flex items-center justify-between">
+            <span>Saldo atual</span>
+            <span className={`font-semibold ${balance < 0 ? "text-destructive" : "text-[color:var(--success)]"}`}>{brl(balance)}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Depois de fechar, este saldo pode ser somado a um novo crédito antecipado no momento do cadastro.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button type="button" onClick={onConfirm} disabled={loading}>
+            {loading ? "Fechando..." : "Confirmar fechamento"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -703,17 +773,27 @@ function NewProviderDialog({ companies }: { companies: Company[] }) {
   );
 }
 
-interface CreditWithBalance { credit: FuelCredit; used: number; balance: number }
+interface CreditWithBalance { credit: FuelCredit; used: number; total: number; balance: number }
 
-function NewCreditDialog({ companies, providers }: { companies: Company[]; providers: Provider[] }) {
+function NewCreditDialog({ companies, providers, credits }: { companies: Company[]; providers: Provider[]; credits: CreditWithBalance[] }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [providerId, setProviderId] = useState("none");
+  const [carryId, setCarryId] = useState("none");
   const [loading, setLoading] = useState(false);
 
   const companyProviders = companyId ? providers.filter(p => p.company_id === companyId) : [];
+  const alreadyCarried = new Set(credits.map(c => c.credit.carry_from_credit_id).filter(Boolean) as string[]);
+  const carryOptions = companyId
+    ? credits.filter(c =>
+        c.credit.company_id === companyId &&
+        c.credit.closed_at &&
+        Math.abs(c.balance) > 0.001 &&
+        !alreadyCarried.has(c.credit.id))
+    : [];
+  const carrySelected = carryOptions.find(c => c.credit.id === carryId);
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -730,6 +810,8 @@ function NewCreditDialog({ companies, providers }: { companies: Company[]; provi
       provider_name: providerName,
       cnpj: String(fd.get("cnpj") || "") || null,
       amount,
+      carry_from_credit_id: carrySelected ? carrySelected.credit.id : null,
+      carry_amount: carrySelected ? Number(carrySelected.balance.toFixed(2)) : 0,
       paid_date: String(fd.get("paid_date")),
       notes: String(fd.get("notes") || "") || null,
       created_by: user?.id,
@@ -739,8 +821,9 @@ function NewCreditDialog({ companies, providers }: { companies: Company[]; provi
     toast.success("Crédito antecipado registrado");
     qc.invalidateQueries({ queryKey: ["abastecimentos"] });
     setOpen(false);
-    setCompanyId(""); setProviderId("none");
+    setCompanyId(""); setProviderId("none"); setCarryId("none");
   };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -797,6 +880,25 @@ function NewCreditDialog({ companies, providers }: { companies: Company[]; provi
               <Label htmlFor="paid_date">Data do pagamento</Label>
               <Input id="paid_date" name="paid_date" type="date" required defaultValue={today()} />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Somar saldo de crédito fechado (opcional)</Label>
+            <Select value={carryId} onValueChange={setCarryId} disabled={!companyId || carryOptions.length === 0}>
+              <SelectTrigger><SelectValue placeholder="— Nenhum —" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— Nenhum —</SelectItem>
+                {carryOptions.map(({ credit, balance }) => (
+                  <SelectItem key={credit.id} value={credit.id}>
+                    {credit.provider_name} — saldo {brl(balance)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {carrySelected && (
+              <p className="text-xs text-muted-foreground">
+                Saldo transportado: <span className="font-medium">{brl(carrySelected.balance)}</span>
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="notes">Observações (opcional)</Label>
