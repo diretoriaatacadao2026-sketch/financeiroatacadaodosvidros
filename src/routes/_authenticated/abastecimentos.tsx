@@ -407,6 +407,12 @@ function AbastecimentosPage() {
         onOpenChange={(open) => { if (!open) setSelectedClosedCredit(null); }}
       />
 
+      <CloseCreditDialog
+        credit={creditToClose}
+        balance={creditToClose ? (creditBalances.find(c => c.credit.id === creditToClose.id)?.balance ?? 0) : 0}
+        onOpenChange={(open) => { if (!open) setCreditToClose(null); }}
+      />
+
       <Card className="overflow-hidden">
         <div className="flex items-center gap-2 border-b p-4">
           <Fuel className="h-4 w-4 text-primary" />
