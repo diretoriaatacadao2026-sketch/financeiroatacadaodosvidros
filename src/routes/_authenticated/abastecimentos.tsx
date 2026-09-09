@@ -773,17 +773,27 @@ function NewProviderDialog({ companies }: { companies: Company[] }) {
   );
 }
 
-interface CreditWithBalance { credit: FuelCredit; used: number; balance: number }
+interface CreditWithBalance { credit: FuelCredit; used: number; total: number; balance: number }
 
-function NewCreditDialog({ companies, providers }: { companies: Company[]; providers: Provider[] }) {
+function NewCreditDialog({ companies, providers, credits }: { companies: Company[]; providers: Provider[]; credits: CreditWithBalance[] }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [companyId, setCompanyId] = useState("");
   const [providerId, setProviderId] = useState("none");
+  const [carryId, setCarryId] = useState("none");
   const [loading, setLoading] = useState(false);
 
   const companyProviders = companyId ? providers.filter(p => p.company_id === companyId) : [];
+  const alreadyCarried = new Set(credits.map(c => c.credit.carry_from_credit_id).filter(Boolean) as string[]);
+  const carryOptions = companyId
+    ? credits.filter(c =>
+        c.credit.company_id === companyId &&
+        c.credit.closed_at &&
+        Math.abs(c.balance) > 0.001 &&
+        !alreadyCarried.has(c.credit.id))
+    : [];
+  const carrySelected = carryOptions.find(c => c.credit.id === carryId);
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -800,6 +810,8 @@ function NewCreditDialog({ companies, providers }: { companies: Company[]; provi
       provider_name: providerName,
       cnpj: String(fd.get("cnpj") || "") || null,
       amount,
+      carry_from_credit_id: carrySelected ? carrySelected.credit.id : null,
+      carry_amount: carrySelected ? Number(carrySelected.balance.toFixed(2)) : 0,
       paid_date: String(fd.get("paid_date")),
       notes: String(fd.get("notes") || "") || null,
       created_by: user?.id,
@@ -809,8 +821,9 @@ function NewCreditDialog({ companies, providers }: { companies: Company[]; provi
     toast.success("Crédito antecipado registrado");
     qc.invalidateQueries({ queryKey: ["abastecimentos"] });
     setOpen(false);
-    setCompanyId(""); setProviderId("none");
+    setCompanyId(""); setProviderId("none"); setCarryId("none");
   };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
