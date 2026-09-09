@@ -293,10 +293,11 @@ function AbastecimentosPage() {
                   <TableHead>Posto</TableHead>
                   <TableHead>CNPJ</TableHead>
                   <TableHead className="text-right">Valor pago</TableHead>
+                  <TableHead className="text-right">Saldo transportado</TableHead>
                   <TableHead className="text-right">Consumido</TableHead>
                   <TableHead className="text-right">Saldo</TableHead>
                   <TableHead>Registrado por</TableHead>
-                  <TableHead className="w-10" />
+                  <TableHead className="w-28" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -309,22 +310,33 @@ function AbastecimentosPage() {
                       <TableCell className="text-sm font-medium">{credit.provider_name}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{credit.cnpj ?? "—"}</TableCell>
                       <TableCell className="text-right text-sm">{brl(Number(credit.amount))}</TableCell>
+                      <TableCell className="text-right text-sm text-muted-foreground">
+                        {Number(credit.carry_amount ?? 0) !== 0 ? brl(Number(credit.carry_amount)) : "—"}
+                      </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">{brl(used)}</TableCell>
-                      <TableCell className={`text-right text-sm font-semibold ${balance <= 0 ? "text-destructive" : "text-[color:var(--success)]"}`}>
+                      <TableCell className={`text-right text-sm font-semibold ${balance < 0 ? "text-destructive" : "text-[color:var(--success)]"}`}>
                         {brl(balance)}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{userName(credit.created_by)}</TableCell>
                       <TableCell>
-                        {canDelete && (
-                          <Button variant="ghost" size="icon" onClick={() => deleteCredit(credit.id)}>
-                            <Trash2 className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        )}
+                        <div className="flex items-center justify-end gap-1">
+                          {canManage && (
+                            <Button variant="outline" size="sm" onClick={() => setCreditToClose(credit)}>
+                              <Lock className="mr-1 h-3.5 w-3.5" /> Fechar
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button variant="ghost" size="icon" onClick={() => deleteCredit(credit.id)}>
+                              <Trash2 className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
                 })}
               </TableBody>
+
             </Table>
           </div>
         </Card>
