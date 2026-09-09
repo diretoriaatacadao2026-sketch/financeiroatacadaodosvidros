@@ -20,7 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { brl, dateBR, FUEL_PAYMENT_METHODS } from "@/lib/format";
 import { useUserNames } from "@/lib/use-user-names";
-import { Fuel, Plus, Trash2, Truck, Building2, Wallet } from "lucide-react";
+import { Fuel, Plus, Trash2, Truck, Building2, Wallet, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/abastecimentos")({
@@ -181,6 +181,7 @@ function AbastecimentosPage() {
   );
   const totalCreditBalance = openCredits.reduce((s, c) => s + c.balance, 0);
   const [selectedClosedCredit, setSelectedClosedCredit] = useState<FuelCredit | null>(null);
+  const [creditToClose, setCreditToClose] = useState<FuelCredit | null>(null);
 
   const deleteRefuel = async (id: string) => {
     if (!confirm("Excluir este abastecimento?")) return;
