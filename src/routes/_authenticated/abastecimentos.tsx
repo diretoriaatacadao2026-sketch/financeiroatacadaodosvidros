@@ -216,7 +216,7 @@ function AbastecimentosPage() {
       </div>
 
       <Card className="p-4">
-        <div className="grid gap-3 md:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Empresa</Label>
             <Select value={filters.companyId} onValueChange={(v) => setFilters(f => ({ ...f, companyId: v }))}>
@@ -249,16 +249,9 @@ function AbastecimentosPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">De</Label>
-            <Input type="date" value={filters.from} onChange={(e) => setFilters(f => ({ ...f, from: e.target.value }))} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Até</Label>
-            <Input type="date" value={filters.to} onChange={(e) => setFilters(f => ({ ...f, to: e.target.value }))} />
-          </div>
         </div>
       </Card>
+
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card className="p-5">
