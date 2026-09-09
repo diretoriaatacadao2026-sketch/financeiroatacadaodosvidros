@@ -121,8 +121,6 @@ function AbastecimentosPage() {
     companyId: "all",
     vehicleId: "all",
     providerId: "all",
-    from: daysAgo(30),
-    to: today(),
   });
 
   const { data: base } = useSuspenseQuery(baseDataQuery);
@@ -155,17 +153,17 @@ function AbastecimentosPage() {
   }, [refuels]);
 
   const creditBalances = useMemo(() => {
-    // For every credit: balance = amount - sum of refuels where credit_id = this.id
+    // Saldo = (valor do crédito + saldo transportado) - tudo que já foi debitado dele
     const usedByCredit = new Map<string, number>();
-    refuels.forEach((r) => {
+    base.creditUsage.forEach((r) => {
       if (r.credit_id) usedByCredit.set(r.credit_id, (usedByCredit.get(r.credit_id) ?? 0) + Number(r.total_amount));
     });
-    return base.credits.map((c) => ({
-      credit: c,
-      used: usedByCredit.get(c.id) ?? 0,
-      balance: Number(c.amount) - (usedByCredit.get(c.id) ?? 0),
-    }));
-  }, [base.credits, refuels]);
+    return base.credits.map((c) => {
+      const used = usedByCredit.get(c.id) ?? 0;
+      const total = Number(c.amount) + Number(c.carry_amount ?? 0);
+      return { credit: c, used, total, balance: total - used };
+    });
+  }, [base.credits, base.creditUsage]);
 
   const creditsFiltered = useMemo(
     () => filters.companyId === "all" ? creditBalances : creditBalances.filter(c => c.credit.company_id === filters.companyId),
