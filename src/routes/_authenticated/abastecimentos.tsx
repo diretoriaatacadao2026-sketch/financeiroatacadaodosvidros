@@ -882,6 +882,25 @@ function NewCreditDialog({ companies, providers, credits }: { companies: Company
             </div>
           </div>
           <div className="space-y-1.5">
+            <Label>Somar saldo de crédito fechado (opcional)</Label>
+            <Select value={carryId} onValueChange={setCarryId} disabled={!companyId || carryOptions.length === 0}>
+              <SelectTrigger><SelectValue placeholder="— Nenhum —" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— Nenhum —</SelectItem>
+                {carryOptions.map(({ credit, balance }) => (
+                  <SelectItem key={credit.id} value={credit.id}>
+                    {credit.provider_name} — saldo {brl(balance)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {carrySelected && (
+              <p className="text-xs text-muted-foreground">
+                Saldo transportado: <span className="font-medium">{brl(carrySelected.balance)}</span>
+              </p>
+            )}
+          </div>
+          <div className="space-y-1.5">
             <Label htmlFor="notes">Observações (opcional)</Label>
             <Textarea id="notes" name="notes" maxLength={500} rows={2} />
           </div>
