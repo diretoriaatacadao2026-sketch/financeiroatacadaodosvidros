@@ -209,7 +209,7 @@ function AbastecimentosPage() {
         <div className="flex flex-wrap gap-2">
           {canManage && <NewVehicleDialog companies={base.companies} />}
           {canManage && <NewProviderDialog companies={base.companies} />}
-          {canManage && <NewCreditDialog companies={base.companies} providers={base.providers} />}
+          {canManage && <NewCreditDialog companies={base.companies} providers={base.providers} credits={creditBalances} />}
           {canWrite && base.vehicles.length > 0 && (
             <NewRefuelDialog companies={base.companies} vehicles={base.vehicles} providers={base.providers} credits={creditBalances} />
           )}
