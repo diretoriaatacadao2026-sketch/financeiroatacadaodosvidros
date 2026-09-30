@@ -119,6 +119,10 @@ function ConciliacaoPage() {
       const p = await parseBankStatement(file);
 
       setParsed(p);
+      // Se o extrato é todo de um único dia, ajusta a data da tela para ele,
+      // senão a comparação é feita com os lançamentos de outro dia.
+      const days = Array.from(new Set(p.items.map((i) => i.item_date)));
+      if (days.length === 1 && days[0] !== date) navigate({ search: { date: days[0] }, replace: true });
       if (!bank && p.bank_hint) setBank(p.bank_hint);
       const txs = dayTx ?? [];
       setMatches(doMatch(p.items, txs));
@@ -215,7 +219,7 @@ function ConciliacaoPage() {
           <input
             ref={inputRef}
             type="file"
-            accept="application/pdf,text/csv,.csv,image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+            accept="application/pdf,text/csv,.csv,image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp,*/*"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
