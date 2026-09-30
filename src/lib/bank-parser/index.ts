@@ -14,7 +14,9 @@ const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".bmp"];
 export async function parseBankStatement(file: File): Promise<ParsedStatement> {
   const name = file.name.toLowerCase();
   const isImage = file.type.startsWith("image/") || IMAGE_EXTENSIONS.some((ext) => name.endsWith(ext));
-  const isCsv = file.type === "text/csv" || name.endsWith(".csv");
+  // Alguns exports (ex.: InfinitePay) baixam com nome "arquivo.csv;-charset=utf-8",
+  // que não termina em ".csv" — por isso checamos se ".csv" aparece no nome.
+  const isCsv = file.type.includes("csv") || /\.csv(\b|;|$)/.test(name);
 
   // Prints / screenshots do extrato (OCR)
   if (isImage) {
