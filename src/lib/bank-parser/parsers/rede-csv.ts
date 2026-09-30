@@ -37,7 +37,7 @@ export function parseRedeCsv(csv: string): ParsedStatement {
 
   for (let i = 1; i < linhas.length; i++) {
 
-    const col = linhas[i].split(";");
+    const col = linhas[i].split(";").map((c) => c.replace(/^"|"$/g, "").trim());
 
     const data = col[idxData];
 
