@@ -23,7 +23,13 @@ export async function parseBankStatement(file: File): Promise<ParsedStatement> {
 
   // Extratos exportados em CSV
   if (isCsv) {
-    const csv = await file.text();
+    // Bancos/maquininhas costumam exportar CSV em Latin-1 (Windows) e/ou com BOM.
+    // Ler só como UTF-8 quebra os acentos dos cabeçalhos ("Data da Venda",
+    // "Débito"...) e nenhum parser reconhece as colunas.
+    const buf = await file.arrayBuffer();
+    let csv = new TextDecoder("utf-8").decode(buf);
+    if (csv.includes("\uFFFD")) csv = new TextDecoder("windows-1252").decode(buf);
+    csv = csv.replace(/^\uFEFF/, "");
     const csvLower = csv.toLowerCase();
 
     // InfinitePay
