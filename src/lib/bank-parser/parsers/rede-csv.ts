@@ -15,12 +15,14 @@ export function parseRedeCsv(csv: string): ParsedStatement {
     .split(/\r?\n/)
     .filter(l => l.trim());
 
-  const header = linhas[0].split(";");
+  // Cabeçalho normalizado (sem aspas, espaços extras e maiúsculas) — antes a
+  // comparação era exata e qualquer variação no arquivo fazia o parser falhar.
+  const header = linhas[0].split(";").map((h) => h.replace(/^"|"$/g, "").trim().toLowerCase());
 
   const idxData = header.indexOf("data da venda");
   const idxValor = header.indexOf("valor da venda original");
   const idxModalidade = header.indexOf("modalidade");
-  const idxNSU = header.indexOf("NSU/CV");
+  const idxNSU = header.indexOf("nsu/cv");
   const idxStatus = header.indexOf("status da venda");
 
   if (
